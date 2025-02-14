@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import JsBarcode from "jsbarcode";
+import Link from "next/link";
 
 export default function Bodega() {
     const [productos, setProductos] = useState([]);
@@ -23,11 +24,12 @@ export default function Bodega() {
         importado: "",
         tipo_de_joya: "",
         codigo_de_barras: "",
+        stock: "",
         imagen: ""
     });
 
     const tiposDeJoya = [
-        "figuras", "anillo", "colgante", "cadena", "pulsera", "abridor", "corbatero", 
+        "figuras", "anillo", "colgante", "cadena", "pulsera", "abridor", "corbatero",
         "piercing", "reloj", "cajas", "aros", "conjunto", "colleras", "collar", "prendedor"
     ];
 
@@ -59,6 +61,7 @@ export default function Bodega() {
             importado: "",
             tipo_de_joya: "",
             codigo_de_barras: "",
+            stock: "",
             imagen: ""
         });
         cargarProductos();
@@ -85,12 +88,15 @@ export default function Bodega() {
 
     // Filtrar los productos según el filtro de búsqueda
     const productosFiltrados = productos.filter((producto) => {
-        // Convertir los valores a mayúsculas para una comparación insensible a mayúsculas/minúsculas
+        if (!producto || !producto.nombre || !producto.codigo_de_barras) {
+            return false; // Evita productos inválidos
+        }
         const filtroNombre = producto.nombre.toUpperCase().includes(filtro.nombre.toUpperCase());
         const filtroCodigo = producto.codigo_de_barras.toUpperCase().includes(filtro.codigo_de_barras.toUpperCase());
-        const filtroTipoJoya = filtro.tipo_de_joya ? producto.tipo_de_joya.toUpperCase() === filtro.tipo_de_joya.toUpperCase() : true;
+        const filtroTipoJoya = filtro.tipo_de_joya ? producto.tipo_de_joya?.toUpperCase() === filtro.tipo_de_joya.toUpperCase() : true;
         return filtroNombre && filtroCodigo && filtroTipoJoya;
     });
+
 
     return (
         <div className="container mx-auto p-4">
@@ -122,12 +128,17 @@ export default function Bodega() {
                         <option key={tipo} value={tipo}>{tipo}</option>
                     ))}
                 </select>
+                <Link href='/bodega/addproduct'>
+                    <button className="bg-blue-500 text-white px-2 py-1 hover:bg-blue-900 rounded-md mt-1">Agregar Producto</button>
+                </Link>
+                <Link href='/bodega/editproduct'><button className="bg-yellow-600 text-white px-2 py-1 hover:bg-yellow-800 rounded-md mt-1">Editar Productos</button></Link>
             </div>
 
 
             <table className="w-full border">
                 <thead>
                     <tr className="bg-gray-200">
+                        <th className="p-2">Stock</th>
                         <th className="p-2">Imagen</th>
                         <th className="p-2">Nombre</th>
                         <th className="p-2">Tarifa Pública</th>
@@ -143,9 +154,18 @@ export default function Bodega() {
                 <tbody>
                     {productosFiltrados.map((producto) => (
                         <tr key={producto._id} className="border-t">
+                            <td className="p-2">{producto.stock}</td>
                             <td className="p-2">
-                                <img src={producto.imagen} alt="Imagen del Producto" className="w-16 h-16 object-cover" />
+                                <img
+                                    src={producto.imagen && producto.imagen.trim() !== "" ? producto.imagen : "/ruta/a/imagen-por-defecto.png"}
+                                    alt={producto.imagen || "Imagen no disponible"}
+                                    className="w-16 h-16 object-cover"
+                                    onError={(e) => {
+                                        e.target.src = ""; // Imagen por defecto si hay un error al cargar
+                                    }}
+                                />
                             </td>
+
                             <td className="p-2">{producto.nombre}</td>
                             <td className="p-2">{producto.tarifa_publica}</td>
                             <td className="p-2">{producto.mayorista}</td>
@@ -155,12 +175,10 @@ export default function Bodega() {
                             <td className="p-2">{producto.codigo_de_barras}</td>
                             <td className="p-2">
                                 {producto.codigo_de_barras && (
-                                    <img 
-                                        src={generarCodigoDeBarras(producto.codigo_de_barras)} 
-                                        alt="Código de Barra" 
-                                        onError={(e) => {
-                                            e.target.src = "/ruta/a/imagen-por-defecto.png"; // Imagen de error
-                                        }}
+                                    <img
+                                        src={generarCodigoDeBarras(producto.codigo_de_barras)}
+                                        alt="Código de Barra"
+                                        
                                     />
                                 )}
                             </td>
