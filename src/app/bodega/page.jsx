@@ -3,29 +3,15 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import JsBarcode from "jsbarcode";
 import Link from "next/link";
+import { useCarrito } from "@/context/CarritoContext";
 
 export default function Bodega() {
+    const { agregarAlCarrito } = useCarrito(); // Usa el contexto
     const [productos, setProductos] = useState([]);
     const [filtro, setFiltro] = useState({
         nombre: "",
         codigo_de_barras: "",
         tipo_de_joya: ""
-    });
-    const [nuevoProducto, setNuevoProducto] = useState({
-        nombre: "",
-        costo: "",
-        tarifa_publica: "",
-        mayorista: "",
-        preferentes: "",
-        interno: "",
-        metal: "",
-        prod_nac_imp: "",
-        taller_externa: "",
-        importado: "",
-        tipo_de_joya: "",
-        codigo_de_barras: "",
-        stock: "",
-        imagen: ""
     });
 
     const tiposDeJoya = [
@@ -40,31 +26,6 @@ export default function Bodega() {
     const cargarProductos = async () => {
         const res = await axios.get("http://localhost:4000/productosPuntoDeVenta");
         setProductos(res.data.productos);
-    };
-
-    const agregarProducto = async () => {
-        if (!nuevoProducto.codigo_de_barras) {
-            alert("El código de barras es obligatorio");
-            return;
-        }
-        await axios.post("http://localhost:4000/productosPuntoDeVenta", nuevoProducto);
-        setNuevoProducto({
-            nombre: "",
-            costo: "",
-            tarifa_publica: "",
-            mayorista: "",
-            preferentes: "",
-            interno: "",
-            metal: "",
-            prod_nac_imp: "",
-            taller_externa: "",
-            importado: "",
-            tipo_de_joya: "",
-            codigo_de_barras: "",
-            stock: "",
-            imagen: ""
-        });
-        cargarProductos();
     };
 
     const eliminarProducto = async (id) => {
@@ -96,7 +57,6 @@ export default function Bodega() {
         const filtroTipoJoya = filtro.tipo_de_joya ? producto.tipo_de_joya?.toUpperCase() === filtro.tipo_de_joya.toUpperCase() : true;
         return filtroNombre && filtroCodigo && filtroTipoJoya;
     });
-
 
     return (
         <div className="container mx-auto p-4">
@@ -131,10 +91,12 @@ export default function Bodega() {
                 <Link href='/bodega/addproduct'>
                     <button className="bg-blue-500 text-white px-2 py-1 hover:bg-blue-900 rounded-md mt-1">Agregar Producto</button>
                 </Link>
-                <Link href='/bodega/editproduct'><button className="bg-yellow-600 text-white px-2 py-1 hover:bg-yellow-800 rounded-md mt-1">Editar Productos</button></Link>
+                <Link href='/bodega/editproduct'>
+                    <button className="bg-yellow-600 text-white px-2 py-1 hover:bg-yellow-800 rounded-md mt-1">Editar Productos</button>
+                </Link>
             </div>
 
-
+            {/* Tabla de productos */}
             <table className="w-full border">
                 <thead>
                     <tr className="bg-gray-200">
@@ -157,15 +119,11 @@ export default function Bodega() {
                             <td className="p-2">{producto.stock}</td>
                             <td className="p-2">
                                 <img
-                                    src={producto.imagen && producto.imagen.trim() !== "" ? producto.imagen : "/ruta/a/imagen-por-defecto.png"}
-                                    alt={producto.imagen || "Imagen no disponible"}
+                                    src={producto.imagen || "/ruta/a/imagen-por-defecto.png"}
+                                    alt={producto.nombre}
                                     className="w-16 h-16 object-cover"
-                                    onError={(e) => {
-                                        e.target.src = ""; // Imagen por defecto si hay un error al cargar
-                                    }}
                                 />
                             </td>
-
                             <td className="p-2">{producto.nombre}</td>
                             <td className="p-2">{producto.tarifa_publica}</td>
                             <td className="p-2">{producto.mayorista}</td>
@@ -178,12 +136,22 @@ export default function Bodega() {
                                     <img
                                         src={generarCodigoDeBarras(producto.codigo_de_barras)}
                                         alt="Código de Barra"
-                                        
                                     />
                                 )}
                             </td>
                             <td className="p-2">
-                                <button onClick={() => eliminarProducto(producto._id)} className="bg-red-500 text-white px-2 py-1">Eliminar</button>
+                                <button
+                                    onClick={() => agregarAlCarrito(producto)}
+                                    className="bg-green-500 text-white px-2 py-1"
+                                >
+                                    Agregar al carrito
+                                </button>
+                                <button
+                                    onClick={() => eliminarProducto(producto._id)}
+                                    className="bg-red-500 text-white px-2 py-1 ml-2"
+                                >
+                                    Eliminar
+                                </button>
                             </td>
                         </tr>
                     ))}
