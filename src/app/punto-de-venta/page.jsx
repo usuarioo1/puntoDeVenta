@@ -38,22 +38,28 @@ export default function Venta() {
     };
 
     const confirmarVenta = async () => {
-        let total = carrito.reduce((sum, item) => sum + item.costo * item.cantidad, 0);
-
-        for (let item of carrito) {
-            await axios.put(`http://localhost:4000/productosPuntoDeVenta/${item._id}/reduceStock`, { cantidad: item.cantidad });
-        }
-
+        let total = carrito.reduce((sum, item) => sum + item.tarifa_publica * item.cantidad, 0);
+    
+        // for (let item of carrito) {
+        //     await axios.put(`http://localhost:4000/productosPuntoDeVenta/${item._id}/reduceStock`, { cantidad: item.cantidad });
+        // }
+    
         await axios.post("http://localhost:4000/registrar", { 
-            productos: carrito.map(item => ({ producto: item._id, cantidad: item.cantidad })), 
+            productos: carrito.map(item => ({ 
+                producto: item._id, 
+                cantidad: item.cantidad, 
+                nombre: item.nombre,   // Enviar el nombre
+                codigo: item.codigo_de_barras // Enviar el código
+            })), 
             total 
         });
-
+    
         alert("Venta realizada con éxito");
         vaciarCarrito();
         setVentaIniciada(false);
         cargarProductos();
     };
+    
 
     // Calcular totales
     const totalTarifaPublica = carrito.reduce((sum, item) => sum + item.tarifa_publica * item.cantidad, 0);
@@ -99,8 +105,8 @@ export default function Venta() {
                                     </td>
                                     <td className="py-2 px-4 border">{item.nombre}</td>
                                     <td className="py-2 px-4 border">{item.cantidad}</td>
-                                    <td className="py-2 px-4 border">${item.tarifa_publica.toFixed(2)}</td>
-                                    <td className="py-2 px-4 border">${item.mayorista.toFixed(2)}</td>
+                                    <td className="py-2 px-4 border">${item.tarifa_publica.toFixed(0)}</td>
+                                    <td className="py-2 px-4 border">${item.mayorista.toFixed(0)}</td>
                                 </tr>
                             ))}
                         </tbody>

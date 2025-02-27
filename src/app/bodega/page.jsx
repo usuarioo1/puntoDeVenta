@@ -94,6 +94,9 @@ export default function Bodega() {
                 <Link href='/bodega/editproduct'>
                     <button className="bg-yellow-600 text-white px-2 py-1 hover:bg-yellow-800 rounded-md mt-1">Editar Productos</button>
                 </Link>
+                <Link href='/bodega/ventas'>
+                <button className="bg-green-800 text-white px-2 py-1 hover:bg-green-900 rounded-md mt-1">Ver Ventas</button>
+                </Link>
             </div>
 
             {/* Tabla de productos */}
