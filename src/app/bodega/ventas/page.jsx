@@ -3,6 +3,15 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
+// Función para formatear la fecha
+const formatDate = (date) => {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 export default function VentasListado() {
     const [ventas, setVentas] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -27,19 +36,32 @@ export default function VentasListado() {
 
     useEffect(() => {
         const filtrarVentas = () => {
-            let inicioFiltro;
+            let filtradas = ventas;
+
             if (filtro === "semana") {
-                inicioFiltro = new Date(fechaSeleccionada);
+                const inicioFiltro = new Date(fechaSeleccionada);
                 inicioFiltro.setDate(fechaSeleccionada.getDate() - 7);
+                filtradas = ventas.filter(venta => new Date(venta.fecha) >= inicioFiltro);
             } else if (filtro === "mes") {
-                inicioFiltro = new Date(fechaSeleccionada.getFullYear(), fechaSeleccionada.getMonth(), 1);
-            } else {
-                inicioFiltro = fechaSeleccionada;
+                const inicioFiltro = new Date(fechaSeleccionada.getFullYear(), fechaSeleccionada.getMonth(), 1);
+                filtradas = ventas.filter(venta => new Date(venta.fecha) >= inicioFiltro);
+            } else if (filtro === "fecha") {
+                // Filtra las ventas para que coincidan exactamente con la fecha seleccionada
+                const fechaInicio = new Date(fechaSeleccionada);
+                fechaInicio.setHours(0, 0, 0, 0); // Establece la hora al inicio del día
+
+                const fechaFin = new Date(fechaSeleccionada);
+                fechaFin.setHours(23, 59, 59, 999); // Establece la hora al final del día
+
+                filtradas = ventas.filter(venta => {
+                    const fechaVenta = new Date(venta.fecha);
+                    return fechaVenta >= fechaInicio && fechaVenta <= fechaFin;
+                });
             }
-            
-            const filtradas = ventas.filter(venta => new Date(venta.fecha) >= inicioFiltro);
+
             setVentasFiltradas(filtradas);
         };
+
         filtrarVentas();
     }, [ventas, filtro, fechaSeleccionada]);
 
@@ -65,7 +87,7 @@ export default function VentasListado() {
                     <input
                         type="date"
                         className="border border-gray-300 p-2 rounded"
-                        value={fechaSeleccionada.toISOString().split('T')[0]}
+                        value={formatDate(fechaSeleccionada)} // Formatea la fecha seleccionada
                         onChange={(e) => setFechaSeleccionada(new Date(e.target.value))}
                     />
                 )}
@@ -85,7 +107,9 @@ export default function VentasListado() {
                         <tbody>
                             {ventasFiltradas.map((venta) => (
                                 <tr key={venta._id} className="border-b hover:bg-gray-50">
-                                    <td className="py-2 px-4 border text-center">{new Date(venta.fecha).toLocaleDateString()}</td>
+                                    <td className="py-2 px-4 border text-center">
+                                        {formatDate(venta.fecha)} {/* Formatea la fecha */}
+                                    </td>
                                     <td className="py-2 px-4 border text-center">${venta.total.toFixed(0)}</td>
                                     <td className="py-2 px-4 border">
                                         <ul>
