@@ -142,6 +142,10 @@ export default function BodegaProtegida() {
                                 Ver Ventas
                             </button>
                         </Link>
+                        <Link href='/bodega/traslado'>
+                            <button className="bg-purple-800 text-white px-4 py-2 hover:bg-purple-900 rounded">
+                        Traslado de Productos</button>
+                        </Link>
                     </div>
                 </div>
 

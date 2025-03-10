@@ -4,6 +4,13 @@ import axios from "axios";
 import { useCarrito } from "@/context/CarritoContext";
 
 export default function Venta() {
+    // Authentication state
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
+    const [authError, setAuthError] = useState("");
+
+    // Original states from POS component
     const { carrito, vaciarCarrito, agregarAlCarrito, eliminarDelCarrito } = useCarrito();
     const [codigoBarras, setCodigoBarras] = useState("");
     const [ventaIniciada, setVentaIniciada] = useState(false);
@@ -16,9 +23,54 @@ export default function Venta() {
     const [numeroBoleta, setNumeroBoleta] = useState("");
     const [tipoDocumento, setTipoDocumento] = useState("boleta");
 
+    // Load authentication status from localStorage on component mount
     useEffect(() => {
-        cargarProductos();
+        const authStatus = localStorage.getItem('posAuthStatus');
+        if (authStatus === 'authenticated') {
+            setIsAuthenticated(true);
+        }
     }, []);
+
+    // Function to handle login
+    const handleLogin = (e) => {
+        e.preventDefault();
+        
+        // Example credentials - in a real app, these would be securely stored
+        const validCredentials = [
+            { username: "admin", password: "admin123" },
+            { username: "vendedor", password: "venta2024" }
+        ];
+        
+        // Check if credentials are valid
+        const userFound = validCredentials.find(
+            cred => cred.username === username && cred.password === password
+        );
+        
+        if (userFound) {
+            setIsAuthenticated(true);
+            setAuthError("");
+            // Store auth status in localStorage
+            localStorage.setItem('posAuthStatus', 'authenticated');
+        } else {
+            setAuthError("Credenciales inválidas. Intente nuevamente.");
+        }
+    };
+
+    // Function to handle logout
+    const handleLogout = () => {
+        setIsAuthenticated(false);
+        setUsername("");
+        setPassword("");
+        setVentaIniciada(false);
+        vaciarCarrito();
+        localStorage.removeItem('posAuthStatus');
+    };
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            cargarProductos();
+        }
+    }, [isAuthenticated]);
 
     const cargarProductos = async () => {
         try {
@@ -165,9 +217,76 @@ export default function Venta() {
     const totalMayorista = carrito.reduce((sum, item) => sum + item.mayorista * item.cantidad, 0);
     const totalActual = tipoVenta === "mayor" ? totalMayorista : totalTarifaPublica;
 
+    // Login form if not authenticated
+    if (!isAuthenticated) {
+        return (
+            <div className="container mx-auto p-4 max-w-md">
+                <h1 className="text-2xl font-bold mb-6 text-center">Acceso al Punto de Venta</h1>
+                
+                {authError && (
+                    <div className="p-3 my-3 rounded bg-red-100 text-red-700">
+                        {authError}
+                    </div>
+                )}
+                
+                <form onSubmit={handleLogin} className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="username">
+                            Usuario
+                        </label>
+                        <input 
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                            id="username" 
+                            type="text" 
+                            placeholder="Ingrese su usuario"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            required
+                        />
+                    </div>
+                    <div className="mb-6">
+                        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
+                            Contraseña
+                        </label>
+                        <input 
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" 
+                            id="password" 
+                            type="password" 
+                            placeholder="******************"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                        />
+                    </div>
+                    <div className="flex items-center justify-center">
+                        <button 
+                            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full" 
+                            type="submit"
+                        >
+                            Iniciar Sesión
+                        </button>
+                    </div>
+                    <div className="mt-4 text-center text-sm text-gray-500">
+                        <p>Usuario de prueba: admin</p>
+                        <p>Contraseña: admin123</p>
+                    </div>
+                </form>
+            </div>
+        );
+    }
+
+    // Original POS component if authenticated
     return (
         <div className="container mx-auto p-4">
-            <h1 className="text-2xl font-bold mb-4">Punto de Venta</h1>
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold">Punto de Venta</h1>
+                <button 
+                    onClick={handleLogout} 
+                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-700"
+                >
+                    Cerrar Sesión
+                </button>
+            </div>
             
             {mensaje && (
                 <div className={`p-3 my-3 rounded ${mensaje.includes("Error") || mensaje.includes("no encontrado") 
@@ -348,6 +467,7 @@ export default function Venta() {
                                         type="text" 
                                         id="numeroBoleta" 
                                         className="w-full p-2 border rounded text-lg"
+                                        required
                                         placeholder={`Ingrese el número de ${tipoDocumento === "boleta" ? "boleta" : "factura"}`}
                                         value={numeroBoleta}
                                         onChange={(e) => setNumeroBoleta(e.target.value)}
