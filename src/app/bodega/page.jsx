@@ -5,6 +5,7 @@ import JsBarcode from "jsbarcode";
 import Link from "next/link";
 import { useCarrito } from "@/context/CarritoContext";
 
+
 // Credenciales predefinidas
 const CREDENCIALES = {
     usuario: 'admin',
@@ -88,6 +89,8 @@ export default function BodegaProtegida() {
             }
         };
 
+        
+
         return (
             <div className="container mx-auto p-4">
                 <div className="flex justify-between items-center mb-4">
@@ -144,7 +147,7 @@ export default function BodegaProtegida() {
                         </Link>
                         <Link href='/bodega/traslado'>
                             <button className="bg-purple-800 text-white px-4 py-2 hover:bg-purple-900 rounded">
-                        Traslado de Productos</button>
+                                Traslado de Productos</button>
                         </Link>
                     </div>
                 </div>
@@ -173,9 +176,9 @@ export default function BodegaProtegida() {
                                     <td className="p-2">{producto.stock}</td>
                                     <td className="p-2">
                                         <img
-                                            src={producto.imagen || "/placeholder.png"}
-                                            alt={producto.nombre}
+                                            src={producto.imagen || "/noimagen.png"} // Usa la ruta directa
                                             className="w-16 h-16 object-cover"
+                                            alt="Imagen del producto" // Siempre es buena práctica agregar un atributo alt
                                         />
                                     </td>
                                     <td className="p-2">{producto.nombre}</td>

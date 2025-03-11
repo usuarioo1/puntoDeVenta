@@ -55,12 +55,19 @@ export default function DashboardProductos() {
     const agregarProducto = async () => {
         try {
             const codigoUnico = generarCodigoDeBarras();
-            setNuevoProducto(prevState => ({
-                ...prevState,
+            // Crear un nuevo objeto con todos los datos actualizados
+            const productoCompleto = {
+                ...nuevoProducto,
                 codigo_de_barras: codigoUnico
-            }));
-    
-            await axios.post("http://localhost:4000/productosPuntoDeVenta", nuevoProducto);
+            };
+            
+            // Depuración: Verifica que el objeto contiene el campo stock
+            console.log("Producto a enviar:", productoCompleto);
+            
+            // Enviar el objeto completo
+            await axios.post("http://localhost:4000/productosPuntoDeVenta", productoCompleto);
+            
+            // Actualizar el estado después
             setNuevoProducto({
                 nombre: "",
                 costo: "",
@@ -77,6 +84,7 @@ export default function DashboardProductos() {
                 stock: "",
                 imagen: ""
             });
+            
             alert("Producto agregado correctamente");
             cargarProductos(); 
         } catch (error) {

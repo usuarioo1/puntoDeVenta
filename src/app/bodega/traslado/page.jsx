@@ -101,7 +101,7 @@ const exportarPDF = () => {
 
     // Título más pequeño
     doc.setFontSize(14); // Reducir el tamaño del título
-    doc.text("Detalle de Productos", 10, 10); // Mover el título más a la izquierda
+    doc.text("Detalle de Productos que salen de bodega", 10, 10); // Mover el título más a la izquierda
 
     let y = 20; // Empezar más arriba
     doc.setFontSize(10); // Reducir el tamaño de la fuente

@@ -19,11 +19,28 @@ export default function EditarProductos() {
     };
 
     const manejarBusqueda = (e) => {
-        setBusqueda(e.target.value);
-        const productoEncontrado = productos.find(p => 
-            p.nombre.toLowerCase() === e.target.value.toLowerCase() ||
-            p.codigo_de_barras === e.target.value
-        );
+        const valorBusqueda = e.target.value;
+        setBusqueda(valorBusqueda);
+        
+        if (!valorBusqueda) {
+            setProductoSeleccionado(null);
+            return;
+        }
+        
+        const productoEncontrado = productos.find(p => {
+            if (!p) return false;
+            
+            // Verificar nombre (coincidencia parcial)
+            const coincideNombre = p.nombre && 
+                p.nombre.toLowerCase().includes(valorBusqueda.toLowerCase());
+            
+            // Verificar código de barras (coincidencia exacta o parcial)
+            const coincideCodigo = p.codigo_de_barras && 
+                p.codigo_de_barras.includes(valorBusqueda);
+                
+            return coincideNombre || coincideCodigo;
+        });
+        
         setProductoSeleccionado(productoEncontrado || null);
     };
 
