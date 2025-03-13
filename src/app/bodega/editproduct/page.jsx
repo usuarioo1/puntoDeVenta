@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Link from "next/link";
+import { apiBase } from "@/endpoints/api";
 
 
 export default function EditarProductos() {
@@ -14,7 +15,7 @@ export default function EditarProductos() {
     }, []);
 
     const cargarProductos = async () => {
-        const res = await axios.get("http://localhost:4000/productosPuntoDeVenta");
+        const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
         setProductos(res.data.productos);
     };
 
@@ -51,7 +52,7 @@ export default function EditarProductos() {
 
     const actualizarProducto = async () => {
         try {
-            await axios.put(`http://localhost:4000/productosPuntoDeVenta/${productoSeleccionado._id}`, productoSeleccionado);
+            await axios.put(`${apiBase}/productosPuntoDeVenta/${productoSeleccionado._id}`, productoSeleccionado);
             alert("Producto actualizado correctamente");
             cargarProductos();
             setProductoSeleccionado(null);

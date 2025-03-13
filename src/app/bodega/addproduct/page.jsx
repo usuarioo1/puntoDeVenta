@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { apiBase } from "@/endpoints/api";
 
 export default function DashboardProductos() {
     const [nuevoProducto, setNuevoProducto] = useState({
@@ -32,7 +33,7 @@ export default function DashboardProductos() {
     }, []);
 
     const cargarProductos = async () => {
-        const res = await axios.get("http://localhost:4000/productosPuntoDeVenta");
+        const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
         setProductosExistentes(res.data.productos);
     };
 
@@ -65,7 +66,7 @@ export default function DashboardProductos() {
             console.log("Producto a enviar:", productoCompleto);
             
             // Enviar el objeto completo
-            await axios.post("http://localhost:4000/productosPuntoDeVenta", productoCompleto);
+            await axios.post(`${apiBase}/productosPuntoDeVenta`, productoCompleto);
             
             // Actualizar el estado después
             setNuevoProducto({

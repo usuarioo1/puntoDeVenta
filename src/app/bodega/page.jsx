@@ -4,6 +4,8 @@ import axios from "axios";
 import JsBarcode from "jsbarcode";
 import Link from "next/link";
 import { useCarrito } from "@/context/CarritoContext";
+import { apiBase } from "@/endpoints/api";
+
 
 
 // Credenciales predefinidas
@@ -42,7 +44,7 @@ export default function BodegaProtegida() {
 
         const cargarProductos = async () => {
             try {
-                const res = await axios.get("http://localhost:4000/productosPuntoDeVenta");
+                const res = await axios.get(`${apiBase}/productosPuntoDeVenta`); 
                 setProductos(res.data.productos);
             } catch (error) {
                 console.error("Error al cargar productos:", error);
@@ -51,7 +53,7 @@ export default function BodegaProtegida() {
 
         const eliminarProducto = async (id) => {
             try {
-                await axios.delete(`http://localhost:4000/productosPuntoDeVenta/${id}`);
+                await axios.delete(`${apiBase}/productosPuntoDeVenta/${id}`);
                 cargarProductos();
             } catch (error) {
                 console.error("Error al eliminar producto:", error);

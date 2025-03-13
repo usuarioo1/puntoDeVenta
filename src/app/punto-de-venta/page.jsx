@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useCarrito } from "@/context/CarritoContext";
+import { apiBase } from "@/endpoints/api";
 
 export default function Venta() {
     // Authentication state
@@ -74,7 +75,7 @@ export default function Venta() {
 
     const cargarProductos = async () => {
         try {
-            const res = await axios.get("http://localhost:4000/productosPuntoDeVenta");
+            const res = await axios.get(`${apiBase}/productosPuntoDeVenta`); ``
             if (res.data && Array.isArray(res.data.productos)) {
                 setProductos(res.data.productos);
                 console.log("Productos cargados:", res.data.productos.length);
@@ -135,7 +136,7 @@ export default function Venta() {
                 ? carrito.reduce((sum, item) => sum + item.mayorista * item.cantidad, 0)
                 : carrito.reduce((sum, item) => sum + item.tarifa_publica * item.cantidad, 0);
 
-            await axios.post("http://localhost:4000/registrar", {
+            await axios.post(`${apiBase}/registrar`, {
                 productos: carrito.map(item => ({
                     producto: item._id,
                     cantidad: item.cantidad,

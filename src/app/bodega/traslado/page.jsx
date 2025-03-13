@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef } from 'react'; // Importar useRef y useEffect
 import jsPDF from 'jspdf';
 import axios from 'axios';
-import JsBarcode from 'jsbarcode'; // Importar JsBarcode
+import JsBarcode from 'jsbarcode'; 
+import { apiBase } from '@/endpoints/api';
 
 export default function GenerarPDF() {
     const [productos, setProductos] = useState([]);
@@ -20,7 +21,7 @@ export default function GenerarPDF() {
     const agregarProducto = async (codigo) => {
         try {
             // Obtener todos los productos
-            const res = await axios.get("http://localhost:4000/productosPuntoDeVenta");
+            const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
             const todosLosProductos = res.data.productos;
 
             // Buscar el producto por código de barras

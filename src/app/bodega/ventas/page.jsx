@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { apiBase } from "@/endpoints/api";
 
 // Función para formatear la fecha
 const formatDate = (date) => {
@@ -23,7 +24,7 @@ export default function VentasListado() {
     useEffect(() => {
         const fetchVentas = async () => {
             try {
-                const response = await axios.get("http://localhost:4000/ventas");
+                const response = await axios.get(`${apiBase}/ventas`);
                 setVentas(response.data);
             } catch (err) {
                 setError("Error al cargar las ventas");
