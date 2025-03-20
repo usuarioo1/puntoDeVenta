@@ -47,13 +47,10 @@ export default function VentasListado() {
                 const inicioFiltro = new Date(fechaSeleccionada.getFullYear(), fechaSeleccionada.getMonth(), 1);
                 filtradas = ventas.filter(venta => new Date(venta.fecha) >= inicioFiltro);
             } else if (filtro === "fecha") {
-                // Filtra las ventas para que coincidan exactamente con la fecha seleccionada
                 const fechaInicio = new Date(fechaSeleccionada);
-                fechaInicio.setHours(0, 0, 0, 0); // Establece la hora al inicio del día
-
+                fechaInicio.setHours(0, 0, 0, 0);
                 const fechaFin = new Date(fechaSeleccionada);
-                fechaFin.setHours(23, 59, 59, 999); // Establece la hora al final del día
-
+                fechaFin.setHours(23, 59, 59, 999);
                 filtradas = ventas.filter(venta => {
                     const fechaVenta = new Date(venta.fecha);
                     return fechaVenta >= fechaInicio && fechaVenta <= fechaFin;
@@ -88,7 +85,7 @@ export default function VentasListado() {
                     <input
                         type="date"
                         className="border border-gray-300 p-2 rounded"
-                        value={formatDate(fechaSeleccionada)} // Formatea la fecha seleccionada
+                        value={formatDate(fechaSeleccionada)}
                         onChange={(e) => setFechaSeleccionada(new Date(e.target.value))}
                     />
                 )}
@@ -102,22 +99,30 @@ export default function VentasListado() {
                             <tr className="bg-gray-100 border-b">
                                 <th className="py-2 px-4 border">Fecha</th>
                                 <th className="py-2 px-4 border">Total</th>
-                                <th className="py-2 px-4 border flex">Productos</th>
+                                <th className="py-2 px-4 border">Productos</th>
                             </tr>
                         </thead>
                         <tbody>
                             {ventasFiltradas.map((venta) => (
                                 <tr key={venta._id} className="border-b hover:bg-gray-50">
-                                    <td className="py-2 px-4 border text-center">
-                                        {formatDate(venta.fecha)} {/* Formatea la fecha */}
-                                    </td>
+                                    <td className="py-2 px-4 border text-center">{formatDate(venta.fecha)}</td>
                                     <td className="py-2 px-4 border text-center">${venta.total.toFixed(0)}</td>
                                     <td className="py-2 px-4 border">
                                         <ul>
                                             {venta.productos.map((item) => (
                                                 <li key={item._id} className="flex items-center gap-2 py-1">
-                                                    <img src={item.producto.imagen} alt={item.producto.nombre} className="w-10 h-10 object-cover rounded" />
-                                                    {item.producto.nombre} x{item.cantidad}
+                                                    {item.producto ? (
+                                                        <>
+                                                            <img 
+                                                                src={item.producto.imagen || "/noimagen.png"} 
+                                                                alt={item.producto.nombre} 
+                                                                className="w-10 h-10 object-cover rounded" 
+                                                            />
+                                                            {item.producto.nombre} x{item.cantidad}
+                                                        </>
+                                                    ) : (
+                                                        <span>{item.nombre} x{item.cantidad}</span>
+                                                    )}
                                                 </li>
                                             ))}
                                         </ul>
