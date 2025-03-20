@@ -160,6 +160,7 @@ export default function BodegaProtegida() {
                         <thead>
                             <tr className="bg-gray-200">
                                 <th className="p-2">Stock</th>
+                                <th className="p-2">Caja</th>
                                 <th className="p-2">Imagen</th>
                                 <th className="p-2">Nombre</th>
                                 <th className="p-2">Tarifa Pública</th>
@@ -169,6 +170,7 @@ export default function BodegaProtegida() {
                                 <th className="p-2">Tipo de Joya</th>
                                 <th className="p-2">Código de Barra</th>
                                 <th className="p-2">Código Generado</th>
+                                
                                 <th className="p-2">Acciones</th>
                             </tr>
                         </thead>
@@ -176,6 +178,7 @@ export default function BodegaProtegida() {
                             {productosFiltrados.map((producto) => (
                                 <tr key={producto._id} className="border-t hover:bg-gray-50">
                                     <td className="p-2">{producto.stock}</td>
+                                    <td className="p-2">{producto.caja}</td>
                                     <td className="p-2">
                                         <img
                                             src={producto.imagen || "/noimagen.png"} // Usa la ruta directa
@@ -183,6 +186,7 @@ export default function BodegaProtegida() {
                                             alt="Imagen del producto" // Siempre es buena práctica agregar un atributo alt
                                         />
                                     </td>
+                                    
                                     <td className="p-2">{producto.nombre}</td>
                                     <td className="p-2">${producto.tarifa_publica}</td>
                                     <td className="p-2">${producto.mayorista}</td>
