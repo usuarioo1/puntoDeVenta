@@ -6,8 +6,6 @@ import Link from "next/link";
 import { useCarrito } from "@/context/CarritoContext";
 import { apiBase } from "@/endpoints/api";
 
-
-
 // Credenciales predefinidas
 const CREDENCIALES = {
     usuario: 'admin',
@@ -32,22 +30,24 @@ export default function BodegaProtegida() {
             codigo_de_barras: "",
             tipo_de_joya: ""
         });
+        const [cargando, setCargando] = useState(false);
+        const [productosCargados, setProductosCargados] = useState(false);
 
         const tiposDeJoya = [
             "figuras", "anillo", "colgante", "cadena", "pulsera", "abridor", "corbatero",
             "piercing", "reloj", "cajas", "aros", "conjunto", "colleras", "collar", "prendedor"
         ];
 
-        useEffect(() => {
-            cargarProductos();
-        }, []);
-
         const cargarProductos = async () => {
             try {
+                setCargando(true);
                 const res = await axios.get(`${apiBase}/productosPuntoDeVenta`); 
                 setProductos(res.data.productos);
+                setProductosCargados(true);
             } catch (error) {
                 console.error("Error al cargar productos:", error);
+            } finally {
+                setCargando(false);
             }
         };
 
@@ -88,10 +88,10 @@ export default function BodegaProtegida() {
             if (window.confirm('¿Estás seguro de que deseas cerrar sesión?')) {
                 localStorage.removeItem('bodega_autenticado');
                 setAutenticado(false);
+                setProductosCargados(false);
+                setProductos([]);
             }
         };
-
-        
 
         return (
             <div className="container mx-auto p-4">
@@ -113,6 +113,7 @@ export default function BodegaProtegida() {
                         value={filtro.nombre}
                         onChange={(e) => setFiltro({ ...filtro, nombre: e.target.value })}
                         className="border p-2 flex-grow"
+                        disabled={!productosCargados}
                     />
                     <input
                         type="text"
@@ -120,11 +121,13 @@ export default function BodegaProtegida() {
                         value={filtro.codigo_de_barras}
                         onChange={(e) => setFiltro({ ...filtro, codigo_de_barras: e.target.value })}
                         className="border p-2 flex-grow"
+                        disabled={!productosCargados}
                     />
                     <select
                         value={filtro.tipo_de_joya}
                         onChange={(e) => setFiltro({ ...filtro, tipo_de_joya: e.target.value })}
                         className="border p-2"
+                        disabled={!productosCargados}
                     >
                         <option value="">Filtrar por tipo de joya</option>
                         {tiposDeJoya.map((tipo) => (
@@ -132,97 +135,135 @@ export default function BodegaProtegida() {
                         ))}
                     </select>
                     <div className="flex gap-2 flex-wrap">
-                        <Link href='/bodega/addproduct'>
-                            <button className="bg-blue-500 text-white px-4 py-2 hover:bg-blue-700 rounded">
-                                Agregar Producto
+                        {!productosCargados ? (
+                            <button 
+                                onClick={cargarProductos}
+                                className="bg-blue-500 text-white px-4 py-2 hover:bg-blue-700 rounded flex items-center gap-2"
+                                disabled={cargando}
+                            >
+                                {cargando ? (
+                                    <>
+                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Cargando...
+                                    </>
+                                ) : 'Cargar Productos'}
                             </button>
-                        </Link>
-                        <Link href='/bodega/editproduct'>
-                            <button className="bg-yellow-600 text-white px-4 py-2 hover:bg-yellow-800 rounded">
-                                Editar Productos
-                            </button>
-                        </Link>
-                        <Link href='/bodega/ventas'>
-                            <button className="bg-green-800 text-white px-4 py-2 hover:bg-green-900 rounded">
-                                Ver Ventas
-                            </button>
-                        </Link>
-                        <Link href='/bodega/traslado'>
-                            <button className="bg-purple-800 text-white px-4 py-2 hover:bg-purple-900 rounded">
-                                Traslado de Productos</button>
-                        </Link>
+                        ) : (
+                            <>
+                                <Link href='/bodega/addproduct'>
+                                    <button className="bg-blue-500 text-white px-4 py-2 hover:bg-blue-700 rounded">
+                                        Agregar Producto
+                                    </button>
+                                </Link>
+                                <Link href='/bodega/editproduct'>
+                                    <button className="bg-yellow-600 text-white px-4 py-2 hover:bg-yellow-800 rounded">
+                                        Editar Productos
+                                    </button>
+                                </Link>
+                                <Link href='/bodega/ventas'>
+                                    <button className="bg-green-800 text-white px-4 py-2 hover:bg-green-900 rounded">
+                                        Ver Ventas
+                                    </button>
+                                </Link>
+                                <Link href='/bodega/traslado'>
+                                    <button className="bg-purple-800 text-white px-4 py-2 hover:bg-purple-900 rounded">
+                                        Traslado de Productos
+                                    </button>
+                                </Link>
+                            </>
+                        )}
                     </div>
                 </div>
 
+                {cargando && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full text-center">
+                            <div className="flex justify-center mb-4">
+                                <svg className="animate-spin h-12 w-12 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-900">Cargando productos</h3>
+                            <p className="mt-2 text-sm text-gray-500">Esto puede tardar unos segundos...</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Tabla de productos */}
-                <div className="overflow-x-auto">
-                    <table className="w-full border">
-                        <thead>
-                            <tr className="bg-gray-200">
-                                <th className="p-2">Stock</th>
-                                <th className="p-2">Caja</th>
-                                <th className="p-2">Imagen</th>
-                                <th className="p-2">Nombre</th>
-                                <th className="p-2">Tarifa Pública</th>
-                                <th className="p-2">Tarifa Mayorista</th>
-                                <th className="p-2">Metal</th>
-                                <th className="p-2">Producto N/I</th>
-                                <th className="p-2">Tipo de Joya</th>
-                                <th className="p-2">Código de Barra</th>
-                                <th className="p-2">Código Generado</th>
-                                
-                                <th className="p-2">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {productosFiltrados.map((producto) => (
-                                <tr key={producto._id} className="border-t hover:bg-gray-50">
-                                    <td className="p-2">{producto.stock}</td>
-                                    <td className="p-2">{producto.caja}</td>
-                                    <td className="p-2">
-                                        <img
-                                            src={producto.imagen || "/noimagen.png"} // Usa la ruta directa
-                                            className="w-16 h-16 object-cover"
-                                            alt="Imagen del producto" // Siempre es buena práctica agregar un atributo alt
-                                        />
-                                    </td>
+                {productosCargados && (
+                    <div className="overflow-x-auto">
+                        <table className="w-full border">
+                            <thead>
+                                <tr className="bg-gray-200">
+                                    <th className="p-2">Stock</th>
+                                    <th className="p-2">Caja</th>
+                                    <th className="p-2">Imagen</th>
+                                    <th className="p-2">Nombre</th>
+                                    <th className="p-2">Tarifa Pública</th>
+                                    <th className="p-2">Tarifa Mayorista</th>
+                                    <th className="p-2">Metal</th>
+                                    <th className="p-2">Producto N/I</th>
+                                    <th className="p-2">Tipo de Joya</th>
+                                    <th className="p-2">Código de Barra</th>
+                                    <th className="p-2">Código Generado</th>
                                     
-                                    <td className="p-2">{producto.nombre}</td>
-                                    <td className="p-2">${producto.tarifa_publica}</td>
-                                    <td className="p-2">${producto.mayorista}</td>
-                                    <td className="p-2">{producto.metal}</td>
-                                    <td className="p-2">{producto.prod_nac_imp}</td>
-                                    <td className="p-2">{producto.tipo_de_joya}</td>
-                                    <td className="p-2">{producto.codigo_de_barras}</td>
-                                    <td className="p-2">
-                                        {producto.codigo_de_barras && (
-                                            <img
-                                                src={generarCodigoDeBarras(producto.codigo_de_barras)}
-                                                alt="Código de Barra"
-                                            />
-                                        )}
-                                    </td>
-                                    <td className="p-2">
-                                        <div className="flex flex-col space-y-2">
-                                            <button
-                                                onClick={() => agregarAlCarrito(producto)}
-                                                className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-700"
-                                            >
-                                                Agregar al carrito
-                                            </button>
-                                            <button
-                                                onClick={() => eliminarProducto(producto._id)}
-                                                className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-700"
-                                            >
-                                                Eliminar
-                                            </button>
-                                        </div>
-                                    </td>
+                                    <th className="p-2">Acciones</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                {productosFiltrados.map((producto) => (
+                                    <tr key={producto._id} className="border-t hover:bg-gray-50">
+                                        <td className="p-2">{producto.stock}</td>
+                                        <td className="p-2">{producto.caja}</td>
+                                        <td className="p-2">
+                                            <img
+                                                src={producto.imagen || "/noimagen.png"}
+                                                className="w-16 h-16 object-cover"
+                                                alt="Imagen del producto"
+                                            />
+                                        </td>
+                                        
+                                        <td className="p-2">{producto.nombre}</td>
+                                        <td className="p-2">${producto.tarifa_publica}</td>
+                                        <td className="p-2">${producto.mayorista}</td>
+                                        <td className="p-2">{producto.metal}</td>
+                                        <td className="p-2">{producto.prod_nac_imp}</td>
+                                        <td className="p-2">{producto.tipo_de_joya}</td>
+                                        <td className="p-2">{producto.codigo_de_barras}</td>
+                                        <td className="p-2">
+                                            {producto.codigo_de_barras && (
+                                                <img
+                                                    src={generarCodigoDeBarras(producto.codigo_de_barras)}
+                                                    alt="Código de Barra"
+                                                />
+                                            )}
+                                        </td>
+                                        <td className="p-2">
+                                            <div className="flex flex-col space-y-2">
+                                                <button
+                                                    onClick={() => agregarAlCarrito(producto)}
+                                                    className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-700"
+                                                >
+                                                    Agregar al carrito
+                                                </button>
+                                                <button
+                                                    onClick={() => eliminarProducto(producto._id)}
+                                                    className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-700"
+                                                >
+                                                    Eliminar
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         );
     };
