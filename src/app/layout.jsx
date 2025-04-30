@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import { CarritoProvider } from "@/context/CarritoContext"; // Asegúrate de que la ruta es correcta
+import { BodegaProvider } from "@/context/BodegaContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,11 +24,12 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      ><BodegaProvider>
         <CarritoProvider> {/* Envolver toda la aplicación */}
           <Header />
           {children}
         </CarritoProvider>
+        </BodegaProvider>
       </body>
     </html>
   );

@@ -1,10 +1,11 @@
-'use client';
+"use client";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import JsBarcode from "jsbarcode";
 import Link from "next/link";
 import { useCarrito } from "@/context/CarritoContext";
 import { apiBase } from "@/endpoints/api";
+import { useBodega } from "@/context/BodegaContext";
 
 // Credenciales predefinidas
 const CREDENCIALES = {
@@ -24,11 +25,18 @@ export default function BodegaProtegida() {
   // Componente de Bodega optimizado
   const ComponenteBodega = () => {
     const { agregarAlCarrito } = useCarrito();
-    const [todosLosProductos, setTodosLosProductos] = useState([]);
-    const [cargando, setCargando] = useState(false);
-    const [productosCargados, setProductosCargados] = useState(false);
+    const {
+      todosLosProductos,
+      setTodosLosProductos,
+      productosCargados,
+      setProductosCargados,
+      cargando,
+      setCargando,
+    } = useBodega();
 
     const cargarProductos = async () => {
+      if (productosCargados) return; // No cargar si ya están cargados
+
       try {
         setCargando(true);
         const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
@@ -45,7 +53,9 @@ export default function BodegaProtegida() {
     const eliminarProducto = async (id) => {
       try {
         await axios.delete(`${apiBase}/productosPuntoDeVenta/${id}`);
-        cargarProductos();
+        // Actualizar el estado global
+        const nuevosProductos = todosLosProductos.filter((p) => p._id !== id);
+        setTodosLosProductos(nuevosProductos);
       } catch (error) {
         console.error("Error al eliminar producto:", error);
       }
@@ -69,7 +79,7 @@ export default function BodegaProtegida() {
       if (window.confirm("¿Estás seguro de que deseas cerrar sesión?")) {
         localStorage.removeItem("bodega_autenticado");
         setAutenticado(false);
-        setProductosCargados(false);
+        // No reiniciamos los productos para mantenerlos cargados
       }
     };
 
@@ -85,7 +95,7 @@ export default function BodegaProtegida() {
           </button>
         </div>
 
-        {/* Instrucción de búsqueda con Ctrl+F en lugar de la barra de búsqueda personalizada */}
+        {/* Instrucción de búsqueda con Ctrl+F */}
         <div className="mb-4 p-4 border rounded bg-gray-50">
           <div className="flex items-center gap-2">
             <svg
@@ -103,13 +113,19 @@ export default function BodegaProtegida() {
               />
             </svg>
             <p className="font-medium">
-              Para buscar productos, utiliza la función de búsqueda de tu navegador presionando{" "}
-              <kbd className="px-2 py-1 bg-gray-200 rounded text-sm">Ctrl</kbd> + 
-              <kbd className="px-2 py-1 bg-gray-200 rounded text-sm ml-1">F</kbd>
-              {" "}(o{" "}
-              <kbd className="px-2 py-1 bg-gray-200 rounded text-sm">⌘</kbd> + 
-              <kbd className="px-2 py-1 bg-gray-200 rounded text-sm ml-1">F</kbd>
-              {" "}en Mac).
+              Para buscar productos, utiliza la función de búsqueda de tu
+              navegador presionando{" "}
+              <kbd className="px-2 py-1 bg-gray-200 rounded text-sm">Ctrl</kbd>{" "}
+              +
+              <kbd className="px-2 py-1 bg-gray-200 rounded text-sm ml-1">
+                F
+              </kbd>{" "}
+              (o <kbd className="px-2 py-1 bg-gray-200 rounded text-sm">⌘</kbd>{" "}
+              +
+              <kbd className="px-2 py-1 bg-gray-200 rounded text-sm ml-1">
+                F
+              </kbd>{" "}
+              en Mac).
             </p>
           </div>
         </div>
@@ -151,25 +167,36 @@ export default function BodegaProtegida() {
             </button>
           ) : (
             <>
-              <Link href="/bodega/addproduct">
-                <button className="bg-blue-500 text-white px-4 py-2 hover:bg-blue-700 rounded">
-                  Agregar Producto
-                </button>
+              <Link href="/bodega/addproduct" passHref legacyBehavior>
+                <a target="_blank" rel="noopener noreferrer">
+                  <button className="bg-blue-500 text-white px-4 py-2 hover:bg-blue-700 rounded">
+                    Agregar Producto
+                  </button>
+                </a>
               </Link>
-              <Link href="/bodega/editproduct">
-                <button className="bg-yellow-600 text-white px-4 py-2 hover:bg-yellow-800 rounded">
-                  Editar Productos
-                </button>
+
+              <Link href="/bodega/editproduct" passHref legacyBehavior>
+                <a target="_blank" rel="noopener noreferrer">
+                  <button className="bg-yellow-600 text-white px-4 py-2 hover:bg-yellow-800 rounded">
+                    Editar Productos
+                  </button>
+                </a>
               </Link>
-              <Link href="/bodega/ventas">
-                <button className="bg-green-800 text-white px-4 py-2 hover:bg-green-900 rounded">
-                  Ver Ventas
-                </button>
+
+              <Link href="/bodega/ventas" passHref legacyBehavior>
+                <a target="_blank" rel="noopener noreferrer">
+                  <button className="bg-green-800 text-white px-4 py-2 hover:bg-green-900 rounded">
+                    Ver Ventas
+                  </button>
+                </a>
               </Link>
-              <Link href="/bodega/traslado">
-                <button className="bg-purple-800 text-white px-4 py-2 hover:bg-purple-900 rounded">
-                  Traslado de Productos
-                </button>
+
+              <Link href="/bodega/traslado" passHref legacyBehavior>
+                <a target="_blank" rel="noopener noreferrer">
+                  <button className="bg-purple-800 text-white px-4 py-2 hover:bg-purple-900 rounded">
+                    Traslado de Productos
+                  </button>
+                </a>
               </Link>
             </>
           )}
@@ -292,7 +319,7 @@ export default function BodegaProtegida() {
     );
   };
 
-  // Componente de inicio de sesión
+  // Componente de inicio de sesión (sin cambios)
   const ComponenteLogin = () => {
     const manejarCambio = (e) => {
       const { name, value } = e.target;
@@ -305,7 +332,6 @@ export default function BodegaProtegida() {
     const iniciarSesion = (e) => {
       e.preventDefault();
 
-      // Validar credenciales
       if (
         formulario.usuario === CREDENCIALES.usuario &&
         formulario.contraseña === CREDENCIALES.contraseña
@@ -313,7 +339,6 @@ export default function BodegaProtegida() {
         setAutenticado(true);
         setError("");
 
-        // Si está activado "recordarme", guardar en localStorage
         if (recordarme) {
           localStorage.setItem("bodega_autenticado", "true");
         }
@@ -406,6 +431,5 @@ export default function BodegaProtegida() {
     }
   }, []);
 
-  // Renderizar el componente correspondiente según el estado de autenticación
   return autenticado ? <ComponenteBodega /> : <ComponenteLogin />;
 }
