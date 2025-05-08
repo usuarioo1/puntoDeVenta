@@ -13,6 +13,9 @@ const CREDENCIALES = {
   contraseña: "bodega123",
 };
 
+// Tipos de joyas disponibles
+const TIPOS_DE_JOYAS = ["AROS", "CONJUNTO", "COLGANTE", "CADENA", "ANILLO", "CAJA", "PIERCING"];
+
 export default function BodegaProtegida() {
   const [autenticado, setAutenticado] = useState(false);
   const [formulario, setFormulario] = useState({
@@ -33,6 +36,24 @@ export default function BodegaProtegida() {
       cargando,
       setCargando,
     } = useBodega();
+    
+    // Estado para el filtro de tipo de joya
+    const [filtroTipoJoya, setFiltroTipoJoya] = useState("");
+    const [productosFiltrados, setProductosFiltrados] = useState([]);
+
+    // Efecto para filtrar productos cuando cambia el filtro o se cargan nuevos productos
+    useEffect(() => {
+      if (productosCargados) {
+        if (!filtroTipoJoya) {
+          setProductosFiltrados(todosLosProductos);
+        } else {
+          const filtrados = todosLosProductos.filter(
+            producto => producto.tipo_de_joya === filtroTipoJoya
+          );
+          setProductosFiltrados(filtrados);
+        }
+      }
+    }, [filtroTipoJoya, todosLosProductos, productosCargados]);
 
     const cargarProductos = async () => {
       if (productosCargados) return; // No cargar si ya están cargados
@@ -42,6 +63,7 @@ export default function BodegaProtegida() {
         const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
         const productosRecibidos = res.data.productos || [];
         setTodosLosProductos(productosRecibidos);
+        setProductosFiltrados(productosRecibidos); // Inicializar productos filtrados
         setProductosCargados(true);
       } catch (error) {
         console.error("Error al cargar productos:", error);
@@ -56,6 +78,10 @@ export default function BodegaProtegida() {
         // Actualizar el estado global
         const nuevosProductos = todosLosProductos.filter((p) => p._id !== id);
         setTodosLosProductos(nuevosProductos);
+        // Actualizar también los productos filtrados
+        setProductosFiltrados(
+          productosFiltrados.filter((p) => p._id !== id)
+        );
       } catch (error) {
         console.error("Error al eliminar producto:", error);
       }
@@ -81,6 +107,16 @@ export default function BodegaProtegida() {
         setAutenticado(false);
         // No reiniciamos los productos para mantenerlos cargados
       }
+    };
+
+    // Manejar cambio de filtro
+    const handleFiltroChange = (e) => {
+      setFiltroTipoJoya(e.target.value);
+    };
+
+    // Calcular conteo de productos por tipo
+    const contarProductosPorTipo = (tipo) => {
+      return todosLosProductos.filter(p => p.tipo_de_joya === tipo).length;
     };
 
     return (
@@ -237,11 +273,63 @@ export default function BodegaProtegida() {
           </div>
         )}
 
+        {/* Filtro de tipo de joya */}
+        {productosCargados && (
+          <div className="mb-6 p-4 border rounded bg-white shadow-sm">
+            <h3 className="text-lg font-semibold mb-3">Filtrar por tipo de joya</h3>
+            
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button
+                onClick={() => setFiltroTipoJoya("")}
+                className={`px-4 py-2 rounded-full ${
+                  filtroTipoJoya === "" 
+                    ? "bg-blue-600 text-white" 
+                    : "bg-gray-200 hover:bg-gray-300"
+                }`}
+              >
+                Todos ({todosLosProductos.length})
+              </button>
+              
+              {TIPOS_DE_JOYAS.map(tipo => (
+                <button
+                  key={tipo}
+                  onClick={() => setFiltroTipoJoya(tipo)}
+                  className={`px-4 py-2 rounded-full ${
+                    filtroTipoJoya === tipo 
+                      ? "bg-blue-600 text-white" 
+                      : "bg-gray-200 hover:bg-gray-300"
+                  }`}
+                >
+                  {tipo} ({contarProductosPorTipo(tipo)})
+                </button>
+              ))}
+            </div>
+            
+            <div className="flex items-center">
+              <label htmlFor="filtroTipoJoya" className="mr-2 font-medium">O selecciona:</label>
+              <select
+                id="filtroTipoJoya"
+                value={filtroTipoJoya}
+                onChange={handleFiltroChange}
+                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todos los tipos</option>
+                {TIPOS_DE_JOYAS.map(tipo => (
+                  <option key={tipo} value={tipo}>
+                    {tipo} ({contarProductosPorTipo(tipo)})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
         {/* Indicador de resultados */}
         {productosCargados && (
           <div className="mb-4">
             <p className="text-gray-700">
-              {todosLosProductos.length} producto(s) encontrado(s)
+              {productosFiltrados.length} producto(s) encontrado(s)
+              {filtroTipoJoya && ` para el tipo: ${filtroTipoJoya}`}
             </p>
           </div>
         )}
@@ -267,7 +355,7 @@ export default function BodegaProtegida() {
                 </tr>
               </thead>
               <tbody>
-                {todosLosProductos.map((producto) => (
+                {productosFiltrados.map((producto) => (
                   <tr key={producto._id} className="border-t hover:bg-gray-50">
                     <td className="p-2">{producto.stock}</td>
                     <td className="p-2">{producto.caja}</td>
