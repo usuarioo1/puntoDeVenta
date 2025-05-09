@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { apiBase } from "@/endpoints/api";
 
@@ -20,9 +20,11 @@ export default function DashboardProductos() {
         stock: "",
         imagen: ""
     });
-    
+
     const [productosExistentes, setProductosExistentes] = useState([]);
-    
+    const [productoRecienAgregado, setProductoRecienAgregado] = useState(null);
+    const productoRef = useRef(null);
+
     const tiposDeJoya = [
         "figuras", "anillo", "colgante", "cadena", "pulsera", "abridor", "corbatero", 
         "piercing", "reloj", "cajas", "aros", "conjunto", "colleras", "collar", "prendedor"
@@ -31,6 +33,12 @@ export default function DashboardProductos() {
     useEffect(() => {
         cargarProductos();
     }, []);
+
+    useEffect(() => {
+        if (productoRef.current) {
+            productoRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [productoRecienAgregado]);
 
     const cargarProductos = async () => {
         const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
@@ -56,19 +64,15 @@ export default function DashboardProductos() {
     const agregarProducto = async () => {
         try {
             const codigoUnico = generarCodigoDeBarras();
-            // Crear un nuevo objeto con todos los datos actualizados
             const productoCompleto = {
                 ...nuevoProducto,
                 codigo_de_barras: codigoUnico
             };
-            
-            // Depuración: Verifica que el objeto contiene el campo stock
+
             console.log("Producto a enviar:", productoCompleto);
-            
-            // Enviar el objeto completo
+
             await axios.post(`${apiBase}/productosPuntoDeVenta`, productoCompleto);
-            
-            // Actualizar el estado después
+
             setNuevoProducto({
                 nombre: "",
                 costo: "",
@@ -85,15 +89,17 @@ export default function DashboardProductos() {
                 stock: "",
                 imagen: ""
             });
-            
+
             alert("Producto agregado correctamente");
-            cargarProductos(); 
+
+            setProductoRecienAgregado(productoCompleto); // guardar producto nuevo
+            cargarProductos();
         } catch (error) {
             console.error("Error al agregar el producto", error.response ? error.response.data : error);
             alert(`Hubo un error al agregar el producto: ${error.message}`);
         }
     };
-    
+
     return (
         <div className="container mx-auto p-4">
             <h1 className="text-2xl font-bold mb-4">Dashboard de Productos</h1>
@@ -133,6 +139,20 @@ export default function DashboardProductos() {
                     Agregar Producto
                 </button>
             </div>
+
+            {productoRecienAgregado && (
+                <div ref={productoRef} className="mt-6 p-4 border border-green-500 bg-green-50 rounded">
+                    <h2 className="text-xl font-semibold mb-2">Producto agregado recientemente:</h2>
+                    <p><strong>Nombre:</strong> {productoRecienAgregado.nombre}</p>
+                    <p><strong>Código de Barras:</strong> {productoRecienAgregado.codigo_de_barras}</p>
+                    <p><strong>Costo:</strong> {productoRecienAgregado.costo}</p>
+                    <p><strong>Tarifa Pública:</strong> {productoRecienAgregado.tarifa_publica}</p>
+                    <p><strong>Tipo de Joya:</strong> {productoRecienAgregado.tipo_de_joya}</p>
+                    {productoRecienAgregado.imagen && (
+                        <img src={productoRecienAgregado.imagen} alt="Imagen del producto" className="w-32 mt-2" />
+                    )}
+                </div>
+            )}
         </div>
     );
 }
