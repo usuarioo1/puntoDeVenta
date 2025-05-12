@@ -72,16 +72,77 @@ export default function EditarProductos() {
             <input type="text" placeholder="Buscar por nombre o código de barras" value={busqueda} onChange={manejarBusqueda} className="border p-2 w-full mb-4" />
             
             {productoSeleccionado && (
-                <div>
-                    <h2 className="text-xl font-bold mb-2">Editar Producto</h2>
-                    <input type="text" name="nombre" value={productoSeleccionado.nombre} onChange={manejarCambio} className="border p-2 w-full mb-2" />
-                    <input type="number" name="costo" value={productoSeleccionado.costo} onChange={manejarCambio} className="border p-2 w-full mb-2" />
-                    <input type="number" name="tarifa_publica" value={productoSeleccionado.tarifa_publica} onChange={manejarCambio} className="border p-2 w-full mb-2" />
-                    <input type="number" name="stock" placeholder="stock" value={productoSeleccionado.stock} onChange={manejarCambio} className="border p-2 w-full mb-2" />
-                    <input type="text" name="imagen" placeholder="imagen" value={productoSeleccionado.imagen} onChange={manejarCambio} className="border p-2 w-full mb-2" />
-                    <button onClick={actualizarProducto} className="bg-green-500 text-white px-4 py-2">Actualizar Producto</button>
-                </div>
-            )}
+    <div>
+        <h2 className="text-xl font-bold mb-2">Editar Producto</h2>
+
+        <label className="block font-semibold mb-1">Nombre</label>
+        <input 
+            type="text" 
+            name="nombre" 
+            value={productoSeleccionado.nombre || ""} 
+            onChange={manejarCambio} 
+            className="border p-2 w-full mb-2" 
+        />
+
+        <label className="block font-semibold mb-1">Costo</label>
+        <input 
+            type="number" 
+            name="costo" 
+            value={productoSeleccionado.costo || ""} 
+            onChange={manejarCambio} 
+            className="border p-2 w-full mb-2" 
+        />
+
+        <label className="block font-semibold mb-1">Precio Bodega</label>
+        <input 
+            type="number" 
+            name="preferentes" 
+            value={productoSeleccionado.preferentes || ""} 
+            onChange={manejarCambio} 
+            className="border p-2 w-full mb-2" 
+        />
+
+        <label className="block font-semibold mb-1">Precio x Mayor</label>
+        <input
+            type="number" 
+            name="mayorista" 
+            value={productoSeleccionado.mayorista || ""} 
+            onChange={manejarCambio} 
+            className="border p-2 w-full mb-2"
+        />
+        <label className="block font-semibold mb-1">Tarifa Pública</label>
+        <input 
+            type="number" 
+            name="tarifa_publica" 
+            value={productoSeleccionado.tarifa_publica || ""} 
+            onChange={manejarCambio} 
+            className="border p-2 w-full mb-2" 
+        />
+
+        <label className="block font-semibold mb-1">Stock</label>
+        <input 
+            type="number" 
+            name="stock" 
+            placeholder="stock" 
+            value={productoSeleccionado.stock || ""} 
+            onChange={manejarCambio} 
+            className="border p-2 w-full mb-2" 
+        />
+
+        <label className="block font-semibold mb-1">URL de la Imagen</label>
+        <input 
+            type="text" 
+            name="imagen" 
+            placeholder="imagen" 
+            value={productoSeleccionado.imagen || ""} 
+            onChange={manejarCambio} 
+            className="border p-2 w-full mb-4" 
+        />
+
+        <button onClick={actualizarProducto} className="bg-green-500 text-white px-4 py-2">Actualizar Producto</button>
+    </div>
+)}
+
         </div>
     );
 }

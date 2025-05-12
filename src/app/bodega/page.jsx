@@ -345,7 +345,8 @@ export default function BodegaProtegida() {
                   <th className="p-2">Imagen</th>
                   <th className="p-2">Nombre</th>
                   <th className="p-2">Tarifa Pública</th>
-                  <th className="p-2">Tarifa Mayorista</th>
+                  <th className="p-2">Local x Mayor</th>
+                  <th className="p-2">Precio Bodega</th>
                   <th className="p-2">Metal</th>
                   <th className="p-2">Producto N/I</th>
                   <th className="p-2">Tipo de Joya</th>
@@ -368,7 +369,8 @@ export default function BodegaProtegida() {
                     </td>
                     <td className="p-2">{producto.nombre}</td>
                     <td className="p-2">${producto.tarifa_publica}</td>
-                    <td className="p-2">${producto.mayorista}</td>
+                    <td className="p-2">${producto.mayorista}</td>  
+                    <td className="p-2">${producto.preferentes}</td>
                     <td className="p-2">{producto.metal}</td>
                     <td className="p-2">{producto.prod_nac_imp}</td>
                     <td className="p-2">{producto.tipo_de_joya}</td>
