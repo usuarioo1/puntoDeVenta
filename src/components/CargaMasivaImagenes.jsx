@@ -1,6 +1,7 @@
 // components/CargaMasivaImagenes.jsx
 import { useState } from 'react';
 import axios from 'axios';
+import { apiBase } from '@/endpoints/api';
 
 const CargaMasivaImagenes = () => {
   const [files, setFiles] = useState([]);
@@ -23,7 +24,7 @@ const CargaMasivaImagenes = () => {
     
     try {
       // Ajusta la URL a tu API
-      const response = await axios.post('http://localhost:4000/productosPuntoDeVenta/cargaMasiva/imagenes', formData, {
+      const response = await axios.post(`${apiBase}/productosPuntoDeVenta/cargaMasiva/imagenes` , formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
