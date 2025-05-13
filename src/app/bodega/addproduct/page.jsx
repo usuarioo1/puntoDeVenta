@@ -56,9 +56,29 @@ export default function DashboardProductos() {
 
     const manejarCambio = (e) => {
         const { name, value } = e.target;
-        setNuevoProducto({
-            ...nuevoProducto,
-            [name]: value
+        
+        // Actualiza el campo modificado
+        setNuevoProducto(prevDatos => {
+            const nuevosDatos = {
+                ...prevDatos,
+                [name]: value
+            };
+            
+            // Solo si se cambió el precio de bodega (preferentes), actualizamos automáticamente los otros precios
+            if (name === 'preferentes' && value) {
+                const precioBodega = parseFloat(value);
+                if (!isNaN(precioBodega)) {
+                    // Calcula el precio mayorista (50% más que el precio de bodega)
+                    const precioMayorista = Math.round(precioBodega * 1.5);
+                    nuevosDatos.mayorista = precioMayorista.toString();
+                    
+                    // Calcula el precio al detalle local (50% más que el precio mayorista)
+                    const precioDetalle = Math.round(precioMayorista * 1.5);
+                    nuevosDatos.tarifa_publica = precioDetalle.toString();
+                }
+            }
+            
+            return nuevosDatos;
         });
     };
 
@@ -172,10 +192,38 @@ export default function DashboardProductos() {
             <h1 className="text-2xl font-bold mb-4">Dashboard de Productos</h1>
 
             <div className="mb-4">
-                <input type="text" name="nombre" placeholder="Nombre del producto" value={nuevoProducto.nombre} onChange={manejarCambio} className="border p-2 mr-2" />
-                <input type="text" name="preferentes" placeholder="Precio Bodega" value={nuevoProducto.preferentes} onChange={manejarCambio} className="border p-2 mr-2" />
-                <input type="text" name="mayorista" placeholder="Precio Mayorista" value={nuevoProducto.mayorista} onChange={manejarCambio} className="border p-2 mr-2" />
-                <input type="text" name="tarifa_publica" placeholder="Precio al detalle local" value={nuevoProducto.tarifa_publica} onChange={manejarCambio} className="border p-2 mr-2" />
+                <input 
+                    type="text" 
+                    name="nombre" 
+                    placeholder="Nombre del producto" 
+                    value={nuevoProducto.nombre} 
+                    onChange={manejarCambio} 
+                    className="border p-2 mr-2" 
+                />
+                <input 
+                    type="text" 
+                    name="preferentes" 
+                    placeholder="Precio Bodega" 
+                    value={nuevoProducto.preferentes} 
+                    onChange={manejarCambio} 
+                    className="border p-2 mr-2" 
+                />
+                <input 
+                    type="text" 
+                    name="mayorista" 
+                    placeholder="Precio Mayorista (Auto +50%)" 
+                    value={nuevoProducto.mayorista} 
+                    onChange={manejarCambio} 
+                    className="border p-2 mr-2" 
+                />
+                <input 
+                    type="text" 
+                    name="tarifa_publica" 
+                    placeholder="Precio Detalle (Auto +50%)" 
+                    value={nuevoProducto.tarifa_publica} 
+                    onChange={manejarCambio} 
+                    className="border p-2 mr-2" 
+                />
             </div>
 
             <div className="mb-4">
