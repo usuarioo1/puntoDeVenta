@@ -106,9 +106,11 @@ export default function DashboardProductos() {
 
             <div className="mb-4">
                 <input type="text" name="nombre" placeholder="Nombre del producto" value={nuevoProducto.nombre} onChange={manejarCambio} className="border p-2 mr-2" />
-                <input type="text" name="costo" placeholder="Costo" value={nuevoProducto.costo} onChange={manejarCambio} className="border p-2 mr-2" />
-                <input type="text" name="tarifa_publica" placeholder="Tarifa Pública" value={nuevoProducto.tarifa_publica} onChange={manejarCambio} className="border p-2 mr-2" />
-                <input type="text" name="mayorista" placeholder="Tarifa Mayorista" value={nuevoProducto.mayorista} onChange={manejarCambio} className="border p-2 mr-2" />
+                {/* <input type="text" name="costo" placeholder="Costo" value={nuevoProducto.costo} onChange={manejarCambio} className="border p-2 mr-2" /> */}
+                <input type="text" name="preferentes" placeholder="Precio Bodega" value={nuevoProducto.preferentes} onChange={manejarCambio} className="border p-2 mr-2" />
+                  <input type="text" name="mayorista" placeholder="Precio Mayorista" value={nuevoProducto.mayorista} onChange={manejarCambio} className="border p-2 mr-2" />
+                <input type="text" name="tarifa_publica" placeholder="Precio al detalle local" value={nuevoProducto.tarifa_publica} onChange={manejarCambio} className="border p-2 mr-2" />
+              
             </div>
 
             <div className="mb-4">
@@ -146,6 +148,8 @@ export default function DashboardProductos() {
                     <p><strong>Nombre:</strong> {productoRecienAgregado.nombre}</p>
                     <p><strong>Código de Barras:</strong> {productoRecienAgregado.codigo_de_barras}</p>
                     <p><strong>Costo:</strong> {productoRecienAgregado.costo}</p>
+                    <p><strong>Precio Bodega:</strong> {productoRecienAgregado.preferentes}</p>
+                    <p><strong>Precio Mayorista:</strong> {productoRecienAgregado.mayorista}</p>
                     <p><strong>Tarifa Pública:</strong> {productoRecienAgregado.tarifa_publica}</p>
                     <p><strong>Tipo de Joya:</strong> {productoRecienAgregado.tipo_de_joya}</p>
                     {productoRecienAgregado.imagen && (
