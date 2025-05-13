@@ -14,7 +14,15 @@ const CREDENCIALES = {
 };
 
 // Tipos de joyas disponibles
-const TIPOS_DE_JOYAS = ["AROS", "CONJUNTO", "COLGANTE", "CADENA", "ANILLO", "CAJA", "PIERCING"];
+const TIPOS_DE_JOYAS = [
+  "AROS",
+  "CONJUNTO",
+  "COLGANTE",
+  "CADENA",
+  "ANILLO",
+  "CAJA",
+  "PIERCING",
+];
 
 export default function BodegaProtegida() {
   const [autenticado, setAutenticado] = useState(false);
@@ -36,7 +44,7 @@ export default function BodegaProtegida() {
       cargando,
       setCargando,
     } = useBodega();
-    
+
     // Estado para el filtro de tipo de joya
     const [filtroTipoJoya, setFiltroTipoJoya] = useState("");
     const [productosFiltrados, setProductosFiltrados] = useState([]);
@@ -48,7 +56,7 @@ export default function BodegaProtegida() {
           setProductosFiltrados(todosLosProductos);
         } else {
           const filtrados = todosLosProductos.filter(
-            producto => producto.tipo_de_joya === filtroTipoJoya
+            (producto) => producto.tipo_de_joya === filtroTipoJoya
           );
           setProductosFiltrados(filtrados);
         }
@@ -79,9 +87,7 @@ export default function BodegaProtegida() {
         const nuevosProductos = todosLosProductos.filter((p) => p._id !== id);
         setTodosLosProductos(nuevosProductos);
         // Actualizar también los productos filtrados
-        setProductosFiltrados(
-          productosFiltrados.filter((p) => p._id !== id)
-        );
+        setProductosFiltrados(productosFiltrados.filter((p) => p._id !== id));
       } catch (error) {
         console.error("Error al eliminar producto:", error);
       }
@@ -116,7 +122,7 @@ export default function BodegaProtegida() {
 
     // Calcular conteo de productos por tipo
     const contarProductosPorTipo = (tipo) => {
-      return todosLosProductos.filter(p => p.tipo_de_joya === tipo).length;
+      return todosLosProductos.filter((p) => p.tipo_de_joya === tipo).length;
     };
 
     return (
@@ -276,27 +282,29 @@ export default function BodegaProtegida() {
         {/* Filtro de tipo de joya */}
         {productosCargados && (
           <div className="mb-6 p-4 border rounded bg-white shadow-sm">
-            <h3 className="text-lg font-semibold mb-3">Filtrar por tipo de joya</h3>
-            
+            <h3 className="text-lg font-semibold mb-3">
+              Filtrar por tipo de joya
+            </h3>
+
             <div className="flex flex-wrap gap-2 mb-4">
               <button
                 onClick={() => setFiltroTipoJoya("")}
                 className={`px-4 py-2 rounded-full ${
-                  filtroTipoJoya === "" 
-                    ? "bg-blue-600 text-white" 
+                  filtroTipoJoya === ""
+                    ? "bg-blue-600 text-white"
                     : "bg-gray-200 hover:bg-gray-300"
                 }`}
               >
                 Todos ({todosLosProductos.length})
               </button>
-              
-              {TIPOS_DE_JOYAS.map(tipo => (
+
+              {TIPOS_DE_JOYAS.map((tipo) => (
                 <button
                   key={tipo}
                   onClick={() => setFiltroTipoJoya(tipo)}
                   className={`px-4 py-2 rounded-full ${
-                    filtroTipoJoya === tipo 
-                      ? "bg-blue-600 text-white" 
+                    filtroTipoJoya === tipo
+                      ? "bg-blue-600 text-white"
                       : "bg-gray-200 hover:bg-gray-300"
                   }`}
                 >
@@ -304,9 +312,11 @@ export default function BodegaProtegida() {
                 </button>
               ))}
             </div>
-            
+
             <div className="flex items-center">
-              <label htmlFor="filtroTipoJoya" className="mr-2 font-medium">O selecciona:</label>
+              <label htmlFor="filtroTipoJoya" className="mr-2 font-medium">
+                O selecciona:
+              </label>
               <select
                 id="filtroTipoJoya"
                 value={filtroTipoJoya}
@@ -314,7 +324,7 @@ export default function BodegaProtegida() {
                 className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Todos los tipos</option>
-                {TIPOS_DE_JOYAS.map(tipo => (
+                {TIPOS_DE_JOYAS.map((tipo) => (
                   <option key={tipo} value={tipo}>
                     {tipo} ({contarProductosPorTipo(tipo)})
                   </option>
@@ -340,42 +350,42 @@ export default function BodegaProtegida() {
             <table className="w-full border">
               <thead>
                 <tr className="bg-gray-200">
-                  <th className="p-2">Stock</th>
-                  <th className="p-2">Caja</th>
-                  <th className="p-2">Imagen</th>
-                  <th className="p-2">Nombre</th>
-                  <th className="p-2">Tarifa Pública</th>
-                  <th className="p-2">Local x Mayor</th>
-                  <th className="p-2">Precio Bodega</th>
-                  <th className="p-2">Metal</th>
-                  <th className="p-2">Producto N/I</th>
-                  <th className="p-2">Tipo de Joya</th>
-                  <th className="p-2">Código de Barra</th>
-                  <th className="p-2">Código Generado</th>
-                  <th className="p-2">Acciones</th>
+                  <th className="p-1">Stock</th>
+                  <th className="p-1">Caja</th>
+                  <th className="p-1">Imagen</th>
+                  <th className="p-1">Nombre</th>
+                  <th className="p-1">Tarifa Pública</th>
+                  <th className="p-1">Local x Mayor</th>
+                  <th className="p-1">Precio Bodega</th>
+                  <th className="p-1">Metal</th>
+                  <th className="p-1">Producto N/I</th>
+                  <th className="p-1">Tipo de Joya</th>
+                  <th className="p-1">Código de Barra</th>
+                  <th className="p-1">Código Generado</th>
+                  <th className="p-1">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {productosFiltrados.map((producto) => (
                   <tr key={producto._id} className="border-t hover:bg-gray-50">
-                    <td className="p-2">{producto.stock}</td>
-                    <td className="p-2">{producto.caja}</td>
-                    <td className="p-2">
+                    <td className="p-1">{producto.stock}</td>
+                    <td className="p-1">{producto.caja}</td>
+                    <td className="p-1">
                       <img
                         src={producto.imagen || "/noimagen.png"}
-                        className="w-16 h-16 object-cover"
+                        className="w-20 h-20 object-cover"
                         alt="Imagen del producto"
                       />
                     </td>
-                    <td className="p-2">{producto.nombre}</td>
-                    <td className="p-2">${producto.tarifa_publica}</td>
-                    <td className="p-2">${producto.mayorista}</td>  
-                    <td className="p-2">${producto.preferentes}</td>
-                    <td className="p-2">{producto.metal}</td>
-                    <td className="p-2">{producto.prod_nac_imp}</td>
-                    <td className="p-2">{producto.tipo_de_joya}</td>
-                    <td className="p-2">{producto.codigo_de_barras}</td>
-                    <td className="p-2">
+                    <td className="p-1">{producto.nombre}</td>
+                    <td className="p-1">${producto.tarifa_publica}</td>
+                    <td className="p-1">${producto.mayorista}</td>
+                    <td className="p-1">${producto.preferentes}</td>
+                    <td className="p-1">{producto.metal}</td>
+                    <td className="p-1">{producto.prod_nac_imp}</td>
+                    <td className="p-1">{producto.tipo_de_joya}</td>
+                    <td className="p-1">{producto.codigo_de_barras}</td>
+                    <td className="p-1">
                       {producto.codigo_de_barras && (
                         <img
                           src={generarCodigoDeBarras(producto.codigo_de_barras)}
@@ -383,7 +393,7 @@ export default function BodegaProtegida() {
                         />
                       )}
                     </td>
-                    <td className="p-2">
+                    <td className="p-1">
                       <div className="flex flex-col space-y-2">
                         <button
                           onClick={() => agregarAlCarrito(producto)}

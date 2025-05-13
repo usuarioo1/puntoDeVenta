@@ -21,9 +21,13 @@ export default function DashboardProductos() {
         imagen: ""
     });
 
+    const [imagenSeleccionada, setImagenSeleccionada] = useState(null);
+    const [previewImagen, setPreviewImagen] = useState("");
     const [productosExistentes, setProductosExistentes] = useState([]);
     const [productoRecienAgregado, setProductoRecienAgregado] = useState(null);
+    const [cargandoImagen, setCargandoImagen] = useState(false);
     const productoRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     const tiposDeJoya = [
         "figuras", "anillo", "colgante", "cadena", "pulsera", "abridor", "corbatero", 
@@ -41,8 +45,13 @@ export default function DashboardProductos() {
     }, [productoRecienAgregado]);
 
     const cargarProductos = async () => {
-        const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
-        setProductosExistentes(res.data.productos);
+        try {
+            const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
+            setProductosExistentes(res.data.productos);
+        } catch (error) {
+            console.error("Error al cargar productos", error);
+            alert("No se pudieron cargar los productos existentes");
+        }
     };
 
     const manejarCambio = (e) => {
@@ -51,6 +60,20 @@ export default function DashboardProductos() {
             ...nuevoProducto,
             [name]: value
         });
+    };
+
+    const manejarSeleccionImagen = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setImagenSeleccionada(file);
+            
+            // Crear una URL para previsualizar la imagen
+            const fileReader = new FileReader();
+            fileReader.onload = () => {
+                setPreviewImagen(fileReader.result);
+            };
+            fileReader.readAsDataURL(file);
+        }
     };
 
     const generarCodigoDeBarras = () => {
@@ -71,8 +94,19 @@ export default function DashboardProductos() {
 
             console.log("Producto a enviar:", productoCompleto);
 
-            await axios.post(`${apiBase}/productosPuntoDeVenta`, productoCompleto);
+            // Primero agregamos el producto sin imagen
+            const respuesta = await axios.post(`${apiBase}/productosPuntoDeVenta`, productoCompleto);
+            const productoGuardado = respuesta.data;
 
+            // Si hay una imagen seleccionada, la subimos
+            if (imagenSeleccionada) {
+                await subirImagen(productoGuardado._id);
+            }
+
+            // Actualizamos la lista de productos después de agregar uno nuevo
+            await cargarProductos();
+
+            // Reseteamos el formulario
             setNuevoProducto({
                 nombre: "",
                 costo: "",
@@ -89,14 +123,47 @@ export default function DashboardProductos() {
                 stock: "",
                 imagen: ""
             });
+            setImagenSeleccionada(null);
+            setPreviewImagen("");
+            
+            // Si la subida fue exitosa, obtenemos el producto actualizado
+            const productoActualizado = await axios.get(`${apiBase}/productosPuntoDeVenta/${productoGuardado._id}`);
+            setProductoRecienAgregado(productoActualizado.data);
 
             alert("Producto agregado correctamente");
-
-            setProductoRecienAgregado(productoCompleto); // guardar producto nuevo
-            cargarProductos();
         } catch (error) {
             console.error("Error al agregar el producto", error.response ? error.response.data : error);
             alert(`Hubo un error al agregar el producto: ${error.message}`);
+        }
+    };
+
+    const subirImagen = async (productoId) => {
+        if (!imagenSeleccionada) return;
+        
+        setCargandoImagen(true);
+        
+        try {
+            const formData = new FormData();
+            formData.append('imagen', imagenSeleccionada);
+            
+            const respuesta = await axios.post(
+                `${apiBase}/productosPuntoDeVenta/${productoId}/subirImagen`, 
+                formData, 
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                }
+            );
+            
+            console.log("Imagen subida:", respuesta.data);
+            return respuesta.data.imageUrl;
+        } catch (error) {
+            console.error("Error al subir la imagen", error);
+            alert("Error al subir la imagen");
+            throw error;
+        } finally {
+            setCargandoImagen(false);
         }
     };
 
@@ -106,11 +173,9 @@ export default function DashboardProductos() {
 
             <div className="mb-4">
                 <input type="text" name="nombre" placeholder="Nombre del producto" value={nuevoProducto.nombre} onChange={manejarCambio} className="border p-2 mr-2" />
-                {/* <input type="text" name="costo" placeholder="Costo" value={nuevoProducto.costo} onChange={manejarCambio} className="border p-2 mr-2" /> */}
                 <input type="text" name="preferentes" placeholder="Precio Bodega" value={nuevoProducto.preferentes} onChange={manejarCambio} className="border p-2 mr-2" />
-                  <input type="text" name="mayorista" placeholder="Precio Mayorista" value={nuevoProducto.mayorista} onChange={manejarCambio} className="border p-2 mr-2" />
+                <input type="text" name="mayorista" placeholder="Precio Mayorista" value={nuevoProducto.mayorista} onChange={manejarCambio} className="border p-2 mr-2" />
                 <input type="text" name="tarifa_publica" placeholder="Precio al detalle local" value={nuevoProducto.tarifa_publica} onChange={manejarCambio} className="border p-2 mr-2" />
-              
             </div>
 
             <div className="mb-4">
@@ -132,13 +197,49 @@ export default function DashboardProductos() {
                     ))}
                 </select>
                 <input type="text" name="codigo_de_barras" placeholder="Código de Barras (Automático)" value={nuevoProducto.codigo_de_barras} disabled className="border p-2 mr-2" />
-                <input type="text" name="imagen" placeholder="URL de la Imagen" value={nuevoProducto.imagen} onChange={manejarCambio} className="border p-2 mr-2" />
                 <input type="number" name="stock" placeholder="Stock" value={nuevoProducto.stock} onChange={manejarCambio} className="border p-2 mr-2" />
             </div>
 
             <div className="mb-4">
-                <button onClick={agregarProducto} className="bg-blue-500 text-white px-4 py-2">
-                    Agregar Producto
+                <div className="flex items-center">
+                    <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={manejarSeleccionImagen} 
+                        className="hidden" 
+                        ref={fileInputRef}
+                    />
+                    <button 
+                        onClick={() => fileInputRef.current.click()} 
+                        className="bg-gray-500 text-white px-4 py-2 mr-2"
+                    >
+                        Seleccionar Imagen
+                    </button>
+                    {previewImagen && (
+                        <div className="relative">
+                            <img src={previewImagen} alt="Vista previa" className="h-16 w-16 object-cover rounded" />
+                            <button 
+                                onClick={() => {
+                                    setImagenSeleccionada(null);
+                                    setPreviewImagen("");
+                                    if (fileInputRef.current) fileInputRef.current.value = "";
+                                }} 
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="mb-4">
+                <button 
+                    onClick={agregarProducto} 
+                    className={`bg-blue-500 text-white px-4 py-2 ${cargandoImagen ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={cargandoImagen}
+                >
+                    {cargandoImagen ? 'Subiendo imagen...' : 'Agregar Producto'}
                 </button>
             </div>
 
@@ -153,7 +254,10 @@ export default function DashboardProductos() {
                     <p><strong>Tarifa Pública:</strong> {productoRecienAgregado.tarifa_publica}</p>
                     <p><strong>Tipo de Joya:</strong> {productoRecienAgregado.tipo_de_joya}</p>
                     {productoRecienAgregado.imagen && (
-                        <img src={productoRecienAgregado.imagen} alt="Imagen del producto" className="w-32 mt-2" />
+                        <div>
+                            <p><strong>Imagen:</strong></p>
+                            <img src={productoRecienAgregado.imagen} alt="Imagen del producto" className="w-32 mt-2" />
+                        </div>
                     )}
                 </div>
             )}
