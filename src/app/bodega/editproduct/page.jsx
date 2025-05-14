@@ -9,6 +9,7 @@ export default function EditarProductos() {
     const [busqueda, setBusqueda] = useState("");
     const [productoSeleccionado, setProductoSeleccionado] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -108,6 +109,34 @@ export default function EditarProductos() {
         } catch (error) {
             console.error("Error al actualizar el producto", error.response ? error.response.data : error);
             alert(`Hubo un error al actualizar el producto: ${error.message}`);
+        }
+    };
+
+    const eliminarProducto = async () => {
+        if (!productoSeleccionado || !productoSeleccionado._id) {
+            alert("Debes seleccionar un producto primero");
+            return;
+        }
+
+        // Confirmación de eliminación
+        const confirmar = window.confirm(`¿Estás seguro de eliminar el producto "${productoSeleccionado.nombre}"? Esta acción no se puede deshacer.`);
+        if (!confirmar) return;
+
+        setIsDeleting(true);
+        
+        try {
+            await axios.delete(`${apiBase}/productosPuntoDeVenta/${productoSeleccionado._id}`);
+            alert("Producto eliminado correctamente");
+            
+            // Actualizar la lista de productos y limpiar la selección
+            cargarProductos();
+            setProductoSeleccionado(null);
+            setBusqueda("");
+        } catch (error) {
+            console.error("Error al eliminar el producto", error.response ? error.response.data : error);
+            alert(`Hubo un error al eliminar el producto: ${error.message}`);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -221,12 +250,22 @@ export default function EditarProductos() {
                         </div>
                     </div>
 
-                    <button 
-                        onClick={actualizarProducto} 
-                        className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                    >
-                        Actualizar Producto
-                    </button>
+                    <div className="flex space-x-4">
+                        <button 
+                            onClick={actualizarProducto} 
+                            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                        >
+                            Actualizar Producto
+                        </button>
+                        
+                        <button 
+                            onClick={eliminarProducto} 
+                            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? 'Eliminando...' : 'Eliminar Producto'}
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
