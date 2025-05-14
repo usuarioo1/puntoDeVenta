@@ -244,8 +244,9 @@ export default function DashboardProductos() {
                         <option key={tipo} value={tipo}>{tipo}</option>
                     ))}
                 </select>
-                <input type="text" name="codigo_de_barras" placeholder="Código de Barras (Automático)" value={nuevoProducto.codigo_de_barras} disabled className="border p-2 mr-2" />
                 <input type="number" name="stock" placeholder="Stock" value={nuevoProducto.stock} onChange={manejarCambio} className="border p-2 mr-2" />
+                <input type="text" name="codigo_de_barras" placeholder="Código de Barras (Automático)" value={nuevoProducto.codigo_de_barras} disabled className="border p-2 mr-2" />
+                
             </div>
 
             <div className="mb-4">
