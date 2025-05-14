@@ -300,6 +300,7 @@ export default function DashboardProductos() {
                     <p><strong>Precio Bodega:</strong> {productoRecienAgregado.preferentes}</p>
                     <p><strong>Precio Mayorista:</strong> {productoRecienAgregado.mayorista}</p>
                     <p><strong>Tarifa Pública:</strong> {productoRecienAgregado.tarifa_publica}</p>
+                    <p><strong>Stock:</strong> {productoRecienAgregado.stock}</p>
                     <p><strong>Tipo de Joya:</strong> {productoRecienAgregado.tipo_de_joya}</p>
                     {productoRecienAgregado.imagen && (
                         <div>
