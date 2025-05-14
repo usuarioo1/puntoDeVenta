@@ -83,16 +83,19 @@ export default function DashboardProductos() {
     };
 
     const manejarSeleccionImagen = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setImagenSeleccionada(file);
-            
-            // Crear una URL para previsualizar la imagen
-            const fileReader = new FileReader();
-            fileReader.onload = () => {
-                setPreviewImagen(fileReader.result);
-            };
-            fileReader.readAsDataURL(file);
+        // Aseguramos que el evento tenga archivos
+        if (e.target.files && e.target.files.length > 0) {
+            const file = e.target.files[0];
+            if (file) {
+                setImagenSeleccionada(file);
+                
+                // Crear una URL para previsualizar la imagen
+                const fileReader = new FileReader();
+                fileReader.onload = () => {
+                    setPreviewImagen(fileReader.result);
+                };
+                fileReader.readAsDataURL(file);
+            }
         }
     };
 
@@ -102,6 +105,32 @@ export default function DashboardProductos() {
             codigo = Math.floor(100000000 + Math.random() * 900000000).toString();
         }
         return codigo;
+    };
+
+    const resetearFormulario = () => {
+        setNuevoProducto({
+            nombre: "",
+            costo: "",
+            tarifa_publica: "",
+            mayorista: "",
+            preferentes: "",
+            interno: "",
+            metal: "",
+            prod_nac_imp: "",
+            taller_externa: "",
+            importado: "",
+            tipo_de_joya: "",
+            codigo_de_barras: "",
+            stock: "",
+            imagen: ""
+        });
+        setImagenSeleccionada(null);
+        setPreviewImagen("");
+        
+        // Importante: resetear el valor del input file
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
     };
 
     const agregarProducto = async () => {
@@ -126,25 +155,8 @@ export default function DashboardProductos() {
             // Actualizamos la lista de productos después de agregar uno nuevo
             await cargarProductos();
 
-            // Reseteamos el formulario
-            setNuevoProducto({
-                nombre: "",
-                costo: "",
-                tarifa_publica: "",
-                mayorista: "",
-                preferentes: "",
-                interno: "",
-                metal: "",
-                prod_nac_imp: "",
-                taller_externa: "",
-                importado: "",
-                tipo_de_joya: "",
-                codigo_de_barras: "",
-                stock: "",
-                imagen: ""
-            });
-            setImagenSeleccionada(null);
-            setPreviewImagen("");
+            // Reseteamos el formulario usando la función separada
+            resetearFormulario();
             
             // Si la subida fue exitosa, obtenemos el producto actualizado
             const productoActualizado = await axios.get(`${apiBase}/productosPuntoDeVenta/${productoGuardado._id}`);
@@ -184,6 +196,14 @@ export default function DashboardProductos() {
             throw error;
         } finally {
             setCargandoImagen(false);
+        }
+    };
+
+    const limpiarSeleccionImagen = () => {
+        setImagenSeleccionada(null);
+        setPreviewImagen("");
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
         }
     };
 
@@ -257,6 +277,7 @@ export default function DashboardProductos() {
                         onChange={manejarSeleccionImagen} 
                         className="hidden" 
                         ref={fileInputRef}
+                        key={Date.now()} // Forzar actualización del componente input
                     />
                     <button 
                         onClick={() => fileInputRef.current.click()} 
@@ -268,12 +289,9 @@ export default function DashboardProductos() {
                         <div className="relative">
                             <img src={previewImagen} alt="Vista previa" className="h-16 w-16 object-cover rounded" />
                             <button 
-                                onClick={() => {
-                                    setImagenSeleccionada(null);
-                                    setPreviewImagen("");
-                                    if (fileInputRef.current) fileInputRef.current.value = "";
-                                }} 
+                                onClick={limpiarSeleccionImagen} 
                                 className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                                type="button"
                             >
                                 ×
                             </button>
@@ -287,6 +305,7 @@ export default function DashboardProductos() {
                     onClick={agregarProducto} 
                     className={`bg-blue-500 text-white px-4 py-2 ${cargandoImagen ? 'opacity-50 cursor-not-allowed' : ''}`}
                     disabled={cargandoImagen}
+                    type="button"
                 >
                     {cargandoImagen ? 'Subiendo imagen...' : 'Agregar Producto'}
                 </button>
