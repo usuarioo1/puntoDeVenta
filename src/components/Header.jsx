@@ -5,8 +5,16 @@ const Header = () => {
     return (
         <header className='bg-white shadow-md'>
             <nav className='container mx-auto p-4 flex flex-col md:flex-row md:justify-between md:items-center gap-4'>
+
                 <div className='text-2xl font-bold text-gray-800'>
                     Artesanías Pachy
+                </div>
+                <div>
+                    <Link href='/bodega'>
+                        <button className="bg-red-800 text-white px-2 py-1 rounded-md hover:bg-red-600">
+                            Volver a Bodega
+                        </button>
+                    </Link>
                 </div>
                 <div className='flex flex-col sm:flex-row sm:flex-wrap gap-2'>
                     <Link href="/bodega/addproduct" passHref legacyBehavior>
