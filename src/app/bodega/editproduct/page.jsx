@@ -172,7 +172,7 @@ export default function EditarProductos() {
 
                     <label className="block font-semibold mb-1">Precio Bodega</label>
                     <input 
-                        type="number" 
+                        type="text" 
                         name="preferentes" 
                         value={productoSeleccionado.preferentes || ""} 
                         onChange={manejarCambio} 
@@ -181,7 +181,7 @@ export default function EditarProductos() {
 
                     <label className="block font-semibold mb-1">Precio x Mayor</label>
                     <input
-                        type="number" 
+                        type="text"
                         name="mayorista" 
                         value={productoSeleccionado.mayorista || ""} 
                         onChange={manejarCambio} 
@@ -189,7 +189,7 @@ export default function EditarProductos() {
                     />
                     <label className="block font-semibold mb-1">Tarifa Pública</label>
                     <input 
-                        type="number" 
+                        type="text" 
                         name="tarifa_publica" 
                         value={productoSeleccionado.tarifa_publica || ""} 
                         onChange={manejarCambio} 
@@ -198,7 +198,7 @@ export default function EditarProductos() {
 
                     <label className="block font-semibold mb-1">Stock</label>
                     <input 
-                        type="number" 
+                        type="text" 
                         name="stock" 
                         placeholder="stock" 
                         value={productoSeleccionado.stock || ""} 
