@@ -10,6 +10,10 @@ export default function EditarProductos() {
     const [productoSeleccionado, setProductoSeleccionado] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [manualOverride, setManualOverride] = useState({
+        mayorista: false,
+        tarifa_publica: false
+    });
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -45,11 +49,52 @@ export default function EditarProductos() {
         });
         
         setProductoSeleccionado(productoEncontrado || null);
+        
+        // Resetear los override cuando se selecciona un nuevo producto
+        setManualOverride({
+            mayorista: false,
+            tarifa_publica: false
+        });
     };
 
     const manejarCambio = (e) => {
         const { name, value } = e.target;
-        setProductoSeleccionado({ ...productoSeleccionado, [name]: value });
+        const updatedProducto = { ...productoSeleccionado, [name]: value };
+        
+        // Si el campo modificado es el precio de bodega, calcular automáticamente 
+        // los otros precios siempre
+        if (name === "preferentes") {
+            const precioBodega = parseFloat(value) || 0;
+            
+            // Precio mayorista = precio bodega + 50% del precio bodega
+            const precioMayorista = precioBodega * 1.5;
+            updatedProducto.mayorista = precioMayorista.toFixed(0);
+            
+            // Tarifa pública = precio mayorista + 50% del precio mayorista
+            const tarifaPublica = precioMayorista * 1.5;
+            updatedProducto.tarifa_publica = tarifaPublica.toFixed(0);
+            
+            // Restablecer los override ya que estamos calculando todo automáticamente
+            setManualOverride({
+                mayorista: false,
+                tarifa_publica: false
+            });
+        } 
+        // Si se modifica manualmente el precio mayorista
+        else if (name === "mayorista") {
+            setManualOverride({ ...manualOverride, mayorista: true });
+            
+            // Actualizar la tarifa pública basada en el nuevo precio mayorista
+            const precioMayorista = parseFloat(value) || 0;
+            const tarifaPublica = precioMayorista * 1.5;
+            updatedProducto.tarifa_publica = tarifaPublica.toFixed(0);
+        } 
+        // Si se modifica manualmente la tarifa pública
+        else if (name === "tarifa_publica") {
+            setManualOverride({ ...manualOverride, tarifa_publica: true });
+        }
+        
+        setProductoSeleccionado(updatedProducto);
     };
 
     const subirImagen = async (e) => {
@@ -106,6 +151,11 @@ export default function EditarProductos() {
             cargarProductos();
             setProductoSeleccionado(null);
             setBusqueda("");
+            // Resetear los override cuando se actualiza un producto
+            setManualOverride({
+                mayorista: false,
+                tarifa_publica: false
+            });
         } catch (error) {
             console.error("Error al actualizar el producto", error.response ? error.response.data : error);
             alert(`Hubo un error al actualizar el producto: ${error.message}`);
@@ -179,7 +229,10 @@ export default function EditarProductos() {
                         className="border p-2 w-full mb-2" 
                     />
 
-                    <label className="block font-semibold mb-1">Precio x Mayor</label>
+                    <div className="flex items-center mb-2">
+                        <label className="block font-semibold mb-1 mr-2">Precio x Mayor</label>
+                        <span className="text-xs text-blue-500">(Calculado automáticamente)</span>
+                    </div>
                     <input
                         type="text"
                         name="mayorista" 
@@ -187,13 +240,17 @@ export default function EditarProductos() {
                         onChange={manejarCambio} 
                         className="border p-2 w-full mb-2"
                     />
-                    <label className="block font-semibold mb-1">Tarifa Pública</label>
+                    
+                    <div className="flex items-center mb-2">
+                        <label className="block font-semibold mb-1 mr-2">Tarifa Pública</label>
+                        <span className="text-xs text-blue-500">(Calculado automáticamente)</span>
+                    </div>
                     <input 
                         type="text" 
                         name="tarifa_publica" 
                         value={productoSeleccionado.tarifa_publica || ""} 
                         onChange={manejarCambio} 
-                        className="border p-2 w-full mb-2" 
+                        className="border p-2 w-full mb-2"
                     />
 
                     <label className="block font-semibold mb-1">Stock</label>

@@ -211,125 +211,163 @@ export default function DashboardProductos() {
         <div className="container mx-auto p-4">
             <h1 className="text-2xl font-bold mb-4">Dashboard de Productos</h1>
 
-            <div className="mb-4">
-                <input 
-                    type="text" 
-                    name="nombre" 
-                    placeholder="Nombre del producto" 
-                    value={nuevoProducto.nombre} 
-                    onChange={manejarCambio} 
-                    className="border p-2 mr-2" 
-                />
-                <input 
-                    type="text" 
-                    name="preferentes" 
-                    placeholder="Precio Bodega" 
-                    value={nuevoProducto.preferentes} 
-                    onChange={manejarCambio} 
-                    className="border p-2 mr-2" 
-                />
-                <input 
-                    type="text" 
-                    name="mayorista" 
-                    placeholder="Precio Mayorista (Auto +50%)" 
-                    value={nuevoProducto.mayorista} 
-                    onChange={manejarCambio} 
-                    className="border p-2 mr-2" 
-                />
-                <input 
-                    type="text" 
-                    name="tarifa_publica" 
-                    placeholder="Precio Detalle (Auto +50%)" 
-                    value={nuevoProducto.tarifa_publica} 
-                    onChange={manejarCambio} 
-                    className="border p-2 mr-2" 
-                />
-            </div>
+            <div className="flex flex-wrap">
+                {/* Formulario (lado izquierdo) */}
+                <div className="w-full lg:w-1/2 pr-0 lg:pr-4 mb-4 lg:mb-0">
+                    <div className="border p-4 rounded shadow-sm">
+                        <h2 className="text-xl font-semibold mb-4">Agregar Nuevo Producto</h2>
+                        
+                        <div className="mb-4">
+                            <input 
+                                type="text" 
+                                name="nombre" 
+                                placeholder="Nombre del producto" 
+                                value={nuevoProducto.nombre} 
+                                onChange={manejarCambio} 
+                                className="border p-2 w-full mb-2" 
+                            />
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <input 
+                                    type="text" 
+                                    name="preferentes" 
+                                    placeholder="Precio Bodega" 
+                                    value={nuevoProducto.preferentes} 
+                                    onChange={manejarCambio} 
+                                    className="border p-2" 
+                                />
+                                <input 
+                                    type="text" 
+                                    name="mayorista" 
+                                    placeholder="Precio Mayorista (Auto +50%)" 
+                                    value={nuevoProducto.mayorista} 
+                                    onChange={manejarCambio} 
+                                    className="border p-2" 
+                                />
+                                <input 
+                                    type="text" 
+                                    name="tarifa_publica" 
+                                    placeholder="Precio Detalle (Auto +50%)" 
+                                    value={nuevoProducto.tarifa_publica} 
+                                    onChange={manejarCambio} 
+                                    className="border p-2" 
+                                />
+                            </div>
+                        </div>
 
-            <div className="mb-4">
-                <select name="metal" value={nuevoProducto.metal} onChange={manejarCambio} className="border p-2 mr-2">
-                    <option value="">Seleccionar Metal</option>
-                    <option value="oro">Oro</option>
-                    <option value="plata">Plata</option>
-                    <option value="piedra">Piedra</option>
-                </select>
-                <select name="prod_nac_imp" value={nuevoProducto.prod_nac_imp} onChange={manejarCambio} className="border p-2 mr-2">
-                    <option value="">Producto Nacional/Importado</option>
-                    <option value="nacional">Nacional</option>
-                    <option value="importado">Importado</option>
-                </select>
-                <select name="tipo_de_joya" value={nuevoProducto.tipo_de_joya} onChange={manejarCambio} className="border p-2 mr-2">
-                    <option value="">Seleccionar Tipo de Joya</option>
-                    {tiposDeJoya.map((tipo) => (
-                        <option key={tipo} value={tipo}>{tipo}</option>
-                    ))}
-                </select>
-                <input type="text" name="stock" placeholder="Stock" value={nuevoProducto.stock} onChange={manejarCambio} className="border p-2 mr-2" />
-                <input type="text" name="codigo_de_barras" placeholder="Código de Barras (Automático)" value={nuevoProducto.codigo_de_barras} disabled className="border p-2 mr-2" />
-                
-            </div>
+                        <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <select name="metal" value={nuevoProducto.metal} onChange={manejarCambio} className="border p-2">
+                                <option value="">Seleccionar Metal</option>
+                                <option value="oro">Oro</option>
+                                <option value="plata">Plata</option>
+                                <option value="piedra">Piedra</option>
+                            </select>
+                            <select name="prod_nac_imp" value={nuevoProducto.prod_nac_imp} onChange={manejarCambio} className="border p-2">
+                                <option value="">Producto Nacional/Importado</option>
+                                <option value="nacional">Nacional</option>
+                                <option value="importado">Importado</option>
+                            </select>
+                        </div>
+                        
+                        <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <select name="tipo_de_joya" value={nuevoProducto.tipo_de_joya} onChange={manejarCambio} className="border p-2">
+                                <option value="">Seleccionar Tipo de Joya</option>
+                                {tiposDeJoya.map((tipo) => (
+                                    <option key={tipo} value={tipo}>{tipo}</option>
+                                ))}
+                            </select>
+                            <input type="text" name="stock" placeholder="Stock" value={nuevoProducto.stock} onChange={manejarCambio} className="border p-2" />
+                        </div>
+                        
+                        <div className="mb-4">
+                            <input type="text" name="codigo_de_barras" placeholder="Código de Barras (Automático)" value={nuevoProducto.codigo_de_barras} disabled className="border p-2 w-full bg-gray-100" />
+                        </div>
 
-            <div className="mb-4">
-                <div className="flex items-center">
-                    <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={manejarSeleccionImagen} 
-                        className="hidden" 
-                        ref={fileInputRef}
-                        key={Date.now()} // Forzar actualización del componente input
-                    />
-                    <button 
-                        onClick={() => fileInputRef.current.click()} 
-                        className="bg-gray-500 text-white px-4 py-2 mr-2"
-                    >
-                        Seleccionar Imagen
-                    </button>
-                    {previewImagen && (
-                        <div className="relative">
-                            <img src={previewImagen} alt="Vista previa" className="h-16 w-16 object-cover rounded" />
+                        <div className="mb-6">
+                            <div className="flex items-center">
+                                <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    onChange={manejarSeleccionImagen} 
+                                    className="hidden" 
+                                    ref={fileInputRef}
+                                    key={Date.now()} // Forzar actualización del componente input
+                                />
+                                <button 
+                                    onClick={() => fileInputRef.current.click()} 
+                                    className="bg-gray-500 text-white px-4 py-2 mr-2 rounded"
+                                    type="button"
+                                >
+                                    Seleccionar Imagen
+                                </button>
+                                {previewImagen && (
+                                    <div className="relative">
+                                        <img src={previewImagen} alt="Vista previa" className="h-16 w-16 object-cover rounded" />
+                                        <button 
+                                            onClick={limpiarSeleccionImagen} 
+                                            className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                                            type="button"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
                             <button 
-                                onClick={limpiarSeleccionImagen} 
-                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                                onClick={agregarProducto} 
+                                className={`bg-blue-500 text-white px-6 py-2 rounded ${cargandoImagen ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}
+                                disabled={cargandoImagen}
                                 type="button"
                             >
-                                ×
+                                {cargandoImagen ? 'Subiendo imagen...' : 'Agregar Producto'}
                             </button>
                         </div>
-                    )}
+                    </div>
                 </div>
-            </div>
 
-            <div className="mb-4">
-                <button 
-                    onClick={agregarProducto} 
-                    className={`bg-blue-500 text-white px-4 py-2 ${cargandoImagen ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    disabled={cargandoImagen}
-                    type="button"
-                >
-                    {cargandoImagen ? 'Subiendo imagen...' : 'Agregar Producto'}
-                </button>
-            </div>
-
-            {productoRecienAgregado && (
-                <div ref={productoRef} className="mt-6 p-4 border border-green-500 bg-green-50 rounded">
-                    <h2 className="text-xl font-semibold mb-2">Producto agregado recientemente:</h2>
-                    <p><strong>Nombre:</strong> {productoRecienAgregado.nombre}</p>
-                    <p><strong>Código de Barras:</strong> {productoRecienAgregado.codigo_de_barras}</p>
-                    <p><strong>Costo:</strong> {productoRecienAgregado.costo}</p>
-                    <p><strong>Precio Bodega:</strong> {productoRecienAgregado.preferentes}</p>
-                    <p><strong>Precio Mayorista:</strong> {productoRecienAgregado.mayorista}</p>
-                    <p><strong>Tarifa Pública:</strong> {productoRecienAgregado.tarifa_publica}</p>
-                    <p><strong>Stock:</strong> {productoRecienAgregado.stock}</p>
-                    <p><strong>Tipo de Joya:</strong> {productoRecienAgregado.tipo_de_joya}</p>
-                    {productoRecienAgregado.imagen && (
-                        <div>
-                            <p><strong>Imagen:</strong></p>
-                            <img src={productoRecienAgregado.imagen} alt="Imagen del producto" className="w-32 mt-2" />
+                {/* Producto recién agregado (lado derecho) */}
+                <div className="w-full lg:w-1/2 pl-0 lg:pl-4">
+                    {productoRecienAgregado ? (
+                        <div ref={productoRef} className="border border-green-500 bg-green-50 rounded p-4 h-full">
+                            <h2 className="text-xl font-semibold mb-4">Producto Agregado</h2>
+                            <div className="flex flex-wrap">
+                                <div className="w-full md:w-2/3">
+                                    <p className="mb-2"><strong>Nombre:</strong> {productoRecienAgregado.nombre}</p>
+                                    <p className="mb-2"><strong>Código de Barras:</strong> {productoRecienAgregado.codigo_de_barras}</p>
+                                    <p className="mb-2"><strong>Precio Bodega:</strong> {productoRecienAgregado.preferentes}</p>
+                                    <p className="mb-2"><strong>Precio Mayorista:</strong> {productoRecienAgregado.mayorista}</p>
+                                    <p className="mb-2"><strong>Tarifa Pública:</strong> {productoRecienAgregado.tarifa_publica}</p>
+                                    <p className="mb-2"><strong>Stock:</strong> {productoRecienAgregado.stock}</p>
+                                    <p className="mb-2"><strong>Metal:</strong> {productoRecienAgregado.metal}</p>
+                                    <p className="mb-2"><strong>Tipo de Joya:</strong> {productoRecienAgregado.tipo_de_joya}</p>
+                                    <p className="mb-2"><strong>Origen:</strong> {productoRecienAgregado.prod_nac_imp}</p>
+                                </div>
+                                {productoRecienAgregado.imagen && (
+                                    <div className="w-full md:w-1/3 flex justify-center items-center">
+                                        <div className="text-center">
+                                            <img 
+                                                src={productoRecienAgregado.imagen} 
+                                                alt="Imagen del producto" 
+                                                className="max-w-full h-auto border rounded shadow-sm mx-auto" 
+                                            />
+                                            <p className="mt-2 text-sm text-gray-600">Imagen del producto</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="border border-gray-300 rounded p-4 h-full flex items-center justify-center bg-gray-50">
+                            <div className="text-center text-gray-500">
+                                <p className="text-xl mb-2">No hay productos recientes</p>
+                                <p>Los productos agregados se mostrarán aquí</p>
+                            </div>
                         </div>
                     )}
                 </div>
-            )}
+            </div>
         </div>
     );
 }
