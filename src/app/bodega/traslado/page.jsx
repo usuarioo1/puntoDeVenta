@@ -422,7 +422,7 @@ export default function GenerarPDF() {
                                 <th className="py-3 px-6 text-left">Seleccionar</th>
                                 <th className="py-3 px-6 text-left">Cantidad</th>
                                 <th className="py-3 px-6 text-left">Nombre</th>
-                                <th className="py-3 px-6 text-left">Precio Mayorista</th>
+                                <th className="py-3 px-6 text-left">Precio Bodega</th>
                                 <th className="py-3 px-6 text-left">Stock</th>
                                 <th className="py-3 px-6 text-left">Código de Barras</th>
                                 <th className="py-3 px-6 text-left">Acciones</th>
