@@ -140,7 +140,7 @@ export default function GenerarPDF() {
                     cantidad: p.cantidad
                 }));
                     //http://localhost:4000/productosPuntoDeVenta
-            const response = await axios.put("http://localhost:4000/productosPuntoDeVenta/descontarStockMasivo", {
+            const response = await axios.put(`${apiBase}/productosPuntoDeVenta/descontarStockMasivo`, {
                 productos: productosParaDescontar
             });
 
