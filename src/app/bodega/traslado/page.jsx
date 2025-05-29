@@ -15,6 +15,7 @@ export default function GenerarPDF() {
     const [descontandoStock, setDescontandoStock] = useState(false);
     const [mostrarResultados, setMostrarResultados] = useState(false);
     const [resultadosDescuento, setResultadosDescuento] = useState({ exitosos: [], errores: [] });
+    const [tituloPDF, setTituloPDF] = useState(""); // Nuevo estado para el título del PDF
     const inputRef = useRef(null);
 
     // Enfocar automáticamente el campo de entrada al cargar la página
@@ -186,35 +187,80 @@ export default function GenerarPDF() {
     // Exportar a PDF
     const exportarPDF = () => {
         const doc = new jsPDF();
-        doc.setFontSize(14);
-        doc.text("Detalle de Productos que salen de bodega", 10, 10);
+        
+        // Título principal
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text("Detalle de Productos que salen de bodega", 10, 15);
+        
+        let y = 25;
+        
+        // Título personalizado si existe
+        if (tituloPDF.trim()) {
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Destino: ${tituloPDF.trim()}`, 10, y);
+            y += 10;
+        }
+        
+        // Fecha actual
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        const fechaActual = new Date().toLocaleDateString('es-ES');
+        doc.text(`Fecha: ${fechaActual}`, 10, y);
+        y += 10;
+        
+        // Separador
+        doc.setDrawColor(200);
+        doc.line(10, y, 200, y);
+        y += 10;
 
-        let y = 20;
+        // Encabezados de la tabla
         doc.setFontSize(10);
         doc.setTextColor(100);
         doc.setFont("helvetica", "bold");
 
-        doc.text("Cantidad", 10, y);
-        doc.text("Nombre", 50, y);
-        doc.text("Precio Mayorista", 120, y);
-        doc.text("Código de Barras", 160, y);
+        doc.text("Cant.", 10, y);
+        doc.text("Nombre", 35, y);
+        doc.text("Precio", 120, y);
+        doc.text("Código de Barras", 150, y);
 
         y += 8;
         doc.setFont("helvetica", "normal");
+        doc.setTextColor(0);
+        
+        // Productos
         productos.forEach((producto) => {
             doc.text(String(producto.cantidad), 10, y);
-            doc.text(producto.nombre, 30, y);
-            doc.text(`$${producto.mayorista}`, 130, y);
+            doc.text(producto.nombre.substring(0, 30), 30, y); // Limitar nombre para que quepa
+            doc.text(`$${producto.mayorista}`, 120, y);
 
             const codigoBarras = generarCodigoDeBarras(producto.codigo_de_barras);
             if (codigoBarras) {
-                doc.addImage(codigoBarras, "PNG", 160, y - 5, 30, 15);
+                doc.addImage(codigoBarras, "PNG", 150, y - 5, 30, 15);
             }
 
             y += 15;
+            
+            // Nueva página si es necesario
+            if (y > 270) {
+                doc.addPage();
+                y = 20;
+            }
         });
 
-        doc.save("detalle_productos.pdf");
+        // Total de productos
+        y += 10;
+        doc.setFont("helvetica", "bold");
+        doc.text(`Total de productos: ${productos.length}`, 10, y);
+        doc.text(`Total de unidades: ${productos.reduce((total, p) => total + p.cantidad, 0)}`, 10, y + 10);
+
+        // Nombre del archivo con título si existe
+        const nombreArchivo = tituloPDF.trim() 
+            ? `productos_${tituloPDF.trim().replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+            : "detalle_productos.pdf";
+            
+        doc.save(nombreArchivo);
     };
 
     return (
@@ -222,6 +268,22 @@ export default function GenerarPDF() {
             <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
                 Generar PDF de Productos
             </h1>
+
+            {/* Campo para título del PDF */}
+            <div className="mb-4 flex justify-center">
+                <div className="w-full max-w-md">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Título del PDF (Destino de los productos)
+                    </label>
+                    <input
+                        type="text"
+                        value={tituloPDF}
+                        onChange={(e) => setTituloPDF(e.target.value)}
+                        placeholder="Ej: Cliente Juan Pérez, Sucursal Norte, etc."
+                        className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    />
+                </div>
+            </div>
 
             {/* Formulario de búsqueda */}
             <form onSubmit={handleManualSubmit} className="mb-4 flex justify-center gap-2">
