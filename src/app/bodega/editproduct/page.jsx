@@ -213,7 +213,7 @@ export default function EditarProductos() {
 
                     <label className="block font-semibold mb-1">Costo</label>
                     <input 
-                        type="number" 
+                        type="text" 
                         name="costo" 
                         value={productoSeleccionado.costo || ""} 
                         onChange={manejarCambio} 
