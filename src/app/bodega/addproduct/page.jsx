@@ -31,7 +31,7 @@ export default function DashboardProductos() {
 
     const tiposDeJoya = [
         "figuras", "anillo", "colgante", "cadena", "pulsera", "abridor", "corbatero", 
-        "piercing", "reloj", "cajas", "aros", "conjunto", "colleras", "collar", "prendedor"
+        "piercing", "reloj", "cajas", "aros", "conjunto", "colleras", "collar", "prendedor","tobillera"
     ];
 
     useEffect(() => {
