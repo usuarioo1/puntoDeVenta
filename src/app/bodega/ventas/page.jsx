@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { apiVentas } from "@/endpoints/api";
 
 // Función para formatear la fecha
 const formatDate = (date) => {

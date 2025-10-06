@@ -4,7 +4,7 @@ import axios from "axios";
 import JsBarcode from "jsbarcode";
 import Link from "next/link";
 import { useCarrito } from "@/context/CarritoContext";
-import { apiBase } from "@/endpoints/api";
+// import { apiBase } from "@/endpoints/api";
 import { useBodega } from "@/context/BodegaContext";
 
 // Credenciales predefinidas
@@ -68,7 +68,7 @@ export default function BodegaProtegida() {
 
       try {
         setCargando(true);
-        const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
+  const res = await axios.get('/api/productosPuntoDeVenta');
         const productosRecibidos = res.data.productos || [];
         setTodosLosProductos(productosRecibidos);
         setProductosFiltrados(productosRecibidos); // Inicializar productos filtrados
@@ -82,7 +82,7 @@ export default function BodegaProtegida() {
 
     const eliminarProducto = async (id) => {
       try {
-        await axios.delete(`${apiBase}/productosPuntoDeVenta/${id}`);
+  await axios.delete(`/api/productosPuntoDeVenta?id=${id}`);
         // Actualizar el estado global
         const nuevosProductos = todosLosProductos.filter((p) => p._id !== id);
         setTodosLosProductos(nuevosProductos);
