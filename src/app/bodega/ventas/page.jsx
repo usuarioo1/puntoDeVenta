@@ -24,7 +24,7 @@ export default function VentasListado() {
     useEffect(() => {
         const fetchVentas = async () => {
             try {
-                const response = await axios.get(`${apiVentas}/ventas`);
+                const response = await axios.get('/api/ventas');
                 setVentas(response.data);
             } catch (err) {
                 setError("Error al cargar las ventas");
