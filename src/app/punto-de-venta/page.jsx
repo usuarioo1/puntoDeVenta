@@ -4,6 +4,7 @@ import axios from "axios";
 import { useCarrito } from "@/context/CarritoContext";
 import { apiBase } from "@/endpoints/api";
 
+
 export default function Venta() {
     // Authentication state
     const [isAuthenticated, setIsAuthenticated] = useState(false);
