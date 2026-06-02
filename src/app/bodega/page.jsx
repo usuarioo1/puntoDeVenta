@@ -1,81 +1,97 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import JsBarcode from "jsbarcode";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCarrito } from "@/context/CarritoContext";
-import { useBodega } from "@/context/BodegaContext";
 import { useAuth } from "@/context/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { apiBase } from "@/endpoints/api";
 
 const TIPOS_DE_JOYAS = [
-    "AROS",
-    "CONJUNTO",
-    "COLGANTE",
-    "CADENA",
-    "ANILLO",
-    "CAJA",
-    "PIERCING",
+    "AROS", "CONJUNTO", "COLGANTE", "CADENA", "ANILLO", "CAJA", "PIERCING",
 ];
+const PAGE_SIZE = 50;
 
 function BodegaContent() {
     const { user, logout } = useAuth();
     const router = useRouter();
     const isAdmin = user?.role === 'admin';
     const { agregarAlCarrito } = useCarrito();
-    const {
-        todosLosProductos,
-        setTodosLosProductos,
-        productosCargados,
-        setProductosCargados,
-        cargando,
-        setCargando,
-    } = useBodega();
 
-    const [filtroTipoJoya, setFiltroTipoJoya] = useState("");
-    const [productosFiltrados, setProductosFiltrados] = useState([]);
+    const [productos, setProductos] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
+    const [skip, setSkip] = useState(0);
+    const [search, setSearch] = useState("");
+    const [searchInput, setSearchInput] = useState("");
+    const [tipo, setTipo] = useState("");
+    const [cargando, setCargando] = useState(false);
+    const [error, setError] = useState("");
 
-    useEffect(() => {
-        if (productosCargados) {
-            if (!filtroTipoJoya) {
-                setProductosFiltrados(todosLosProductos);
-            } else {
-                const filtrados = todosLosProductos.filter(
-                    (producto) => producto.tipo_de_joya === filtroTipoJoya
-                );
-                setProductosFiltrados(filtrados);
-            }
-        }
-    }, [filtroTipoJoya, todosLosProductos, productosCargados]);
+    const abortRef = useRef(null);
+    const debounceRef = useRef(null);
 
-    const cargarProductos = async () => {
-        if (productosCargados) return;
+    const fetchProductos = useCallback(async ({ searchTerm, tipoFiltro, offset, append = false }) => {
+        if (abortRef.current) abortRef.current.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+
+        setCargando(true);
+        setError("");
         try {
-            setCargando(true);
-            const res = await axios.get('/api/productosPuntoDeVenta');
-            const productosRecibidos = res.data.productos || [];
-            setTodosLosProductos(productosRecibidos);
-            setProductosFiltrados(productosRecibidos);
-            setProductosCargados(true);
-        } catch (error) {
-            console.error("Error al cargar productos:", error);
-            alert(
-                `Error al cargar productos: ${error.response?.data?.error || error.message}`
-            );
+            const params = new URLSearchParams();
+            if (searchTerm) params.set('search', searchTerm);
+            if (tipoFiltro) params.set('tipo', tipoFiltro);
+            params.set('limit', PAGE_SIZE);
+            params.set('skip', offset);
+            params.set('sort', 'nombre');
+
+            const { data } = await axios.get(`${apiBase}/productosPuntoDeVenta?${params}`, {
+                signal: controller.signal
+            });
+
+            const nuevos = data.productos || [];
+            setProductos(prev => append ? [...prev, ...nuevos] : nuevos);
+            setTotal(data.total || 0);
+            setHasMore(!!data.hasMore);
+        } catch (err) {
+            if (err.name !== 'CanceledError') {
+                setError(err.response?.data?.error || 'Error al cargar productos');
+            }
         } finally {
             setCargando(false);
         }
+    }, []);
+
+    useEffect(() => {
+        fetchProductos({ searchTerm: '', tipoFiltro: '', offset: 0 });
+    }, [fetchProductos]);
+
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            setSkip(0);
+            fetchProductos({ searchTerm: search, tipoFiltro: tipo, offset: 0 });
+        }, 300);
+        return () => clearTimeout(debounceRef.current);
+    }, [search, tipo, fetchProductos]);
+
+    const cargarMas = () => {
+        const newSkip = skip + PAGE_SIZE;
+        setSkip(newSkip);
+        fetchProductos({ searchTerm: search, tipoFiltro: tipo, offset: newSkip, append: true });
     };
 
     const eliminarProducto = async (id) => {
+        if (!window.confirm('¿Eliminar este producto?')) return;
         try {
             await axios.delete(`/api/productosPuntoDeVenta?id=${id}`);
-            setTodosLosProductos(todosLosProductos.filter((p) => p._id !== id));
-            setProductosFiltrados(productosFiltrados.filter((p) => p._id !== id));
-        } catch (error) {
-            console.error("Error al eliminar producto:", error);
-            alert(error.response?.data?.message || 'No se pudo eliminar el producto');
+            setProductos(prev => prev.filter(p => p._id !== id));
+            setTotal(t => t - 1);
+        } catch (err) {
+            alert(err.response?.data?.message || 'No se pudo eliminar');
         }
     };
 
@@ -85,10 +101,7 @@ function BodegaContent() {
         try {
             JsBarcode(canvas, codigo, { format: "CODE128", width: 2, height: 40 });
             return canvas.toDataURL();
-        } catch (error) {
-            console.error("Error al generar código de barras:", error);
-            return "";
-        }
+        } catch { return ""; }
     };
 
     const handleLogout = () => {
@@ -98,206 +111,113 @@ function BodegaContent() {
         }
     };
 
-    const handleFiltroChange = (e) => setFiltroTipoJoya(e.target.value);
-
-    const contarProductosPorTipo = (tipo) =>
-        todosLosProductos.filter((p) => p.tipo_de_joya === tipo).length;
-
-    const resumenInventario = useMemo(() => {
-        if (!productosCargados || todosLosProductos.length === 0) {
-            return { resumenPorTipo: [], totales: { cantidad: 0, valor: 0 } };
-        }
-        const productosConStock = todosLosProductos.filter((p) => {
-            const stock = parseInt(p.stock) || 0;
-            return stock > 0;
-        });
-        const resumen = {};
-        let cantidadTotal = 0;
-        let valorTotal = 0;
-        productosConStock.forEach((producto) => {
-            const tipo = producto.tipo_de_joya || 'SIN TIPO';
-            const precioBodega = parseFloat(producto.preferentes) || 0;
-            if (!resumen[tipo]) resumen[tipo] = { tipo, cantidad: 0, valorTotal: 0 };
-            resumen[tipo].cantidad += 1;
-            resumen[tipo].valorTotal += precioBodega;
-            cantidadTotal += 1;
-            valorTotal += precioBodega;
-        });
-        const resumenArray = Object.values(resumen).sort((a, b) =>
-            a.tipo.localeCompare(b.tipo)
-        );
-        return { resumenPorTipo: resumenArray, totales: { cantidad: cantidadTotal, valor: valorTotal } };
-    }, [todosLosProductos, productosCargados]);
-
-    const formatearPrecio = (precio) =>
-        new Intl.NumberFormat('es-CL', {
-            style: 'currency', currency: 'CLP',
-            minimumFractionDigits: 0, maximumFractionDigits: 0
-        }).format(precio);
-
     return (
         <div className="container mx-auto p-4">
             <div className="flex justify-between items-center mb-4">
-                <h1 className="text-2xl font-bold">Bodega - Gestión de Productos</h1>
+                <h1 className="text-2xl font-bold">Bodega</h1>
                 <div className="flex items-center gap-3">
                     <span className="text-sm text-gray-600">
                         {user?.name || user?.username} ({user?.role})
                     </span>
-                    <button
-                        onClick={handleLogout}
-                        className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700"
-                    >
+                    <button onClick={handleLogout} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700">
                         Cerrar Sesión
                     </button>
                 </div>
             </div>
 
-            {productosCargados && resumenInventario.resumenPorTipo.length > 0 && (
-                <div className="mb-6 bg-white rounded-lg shadow-lg p-6">
-                    <h2 className="text-xl font-bold mb-4 text-gray-800">
-                        Resumen de Inventario (Solo con Stock)
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-lg shadow">
-                            <p className="text-sm uppercase tracking-wide opacity-80">Cantidad Total</p>
-                            <p className="text-3xl font-bold mt-1">
-                                {resumenInventario.totales.cantidad.toLocaleString('es-CL')}
-                            </p>
-                        </div>
-                        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-lg shadow">
-                            <p className="text-sm uppercase tracking-wide opacity-80">Valor Total</p>
-                            <p className="text-3xl font-bold mt-1">
-                                {formatearPrecio(resumenInventario.totales.valor)}
-                            </p>
-                        </div>
+            <div className="bg-white p-4 rounded shadow mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label className="block text-sm font-semibold mb-1">Buscar</label>
+                        <input
+                            type="text"
+                            placeholder="Nombre o código de barras..."
+                            value={searchInput}
+                            onChange={(e) => { setSearchInput(e.target.value); setSearch(e.target.value); }}
+                            className="border p-2 w-full rounded"
+                        />
                     </div>
-                </div>
-            )}
-
-            <div className="flex gap-2 flex-wrap mb-4">
-                {!productosCargados ? (
-                    <button
-                        onClick={cargarProductos}
-                        className="bg-blue-500 text-white px-4 py-2 hover:bg-blue-700 rounded"
-                        disabled={cargando}
-                    >
-                        {cargando ? "Cargando..." : "Cargar Productos"}
-                    </button>
-                ) : (
-                    <>
+                    <div>
+                        <label className="block text-sm font-semibold mb-1">Tipo de joya</label>
+                        <select
+                            value={tipo}
+                            onChange={(e) => setTipo(e.target.value)}
+                            className="border p-2 w-full rounded"
+                        >
+                            <option value="">Todos</option>
+                            {TIPOS_DE_JOYAS.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex items-end gap-2 flex-wrap">
                         {isAdmin && (
                             <>
                                 <Link href="/bodega/addproduct">
-                                    <button className="bg-blue-500 text-white px-4 py-2 hover:bg-blue-700 rounded">
-                                        Agregar Producto
-                                    </button>
+                                    <button className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-700">+ Producto</button>
                                 </Link>
                                 <Link href="/bodega/ventas">
-                                    <button className="bg-green-800 text-white px-4 py-2 hover:bg-green-900 rounded">
-                                        Ver Ventas
-                                    </button>
+                                    <button className="bg-green-800 text-white px-3 py-2 rounded hover:bg-green-900">Ventas</button>
                                 </Link>
                                 <Link href="/bodega/traslado">
-                                    <button className="bg-purple-800 text-white px-4 py-2 hover:bg-purple-900 rounded">
-                                        Traslado de Productos
-                                    </button>
+                                    <button className="bg-purple-800 text-white px-3 py-2 rounded hover:bg-purple-900">Traslado</button>
                                 </Link>
                             </>
                         )}
                         <Link href="/bodega/editproduct">
-                            <button className="bg-yellow-600 text-white px-4 py-2 hover:bg-yellow-800 rounded">
-                                Editar Productos
-                            </button>
+                            <button className="bg-yellow-600 text-white px-3 py-2 rounded hover:bg-yellow-800">Editar</button>
                         </Link>
-                    </>
-                )}
+                    </div>
+                </div>
+                <p className="text-sm text-gray-600 mt-2">
+                    {cargando ? 'Cargando...' : `${productos.length} de ${total} producto(s)`}
+                </p>
             </div>
 
-            {productosCargados && (
-                <div className="mb-6 p-4 border rounded bg-white shadow-sm">
-                    <h3 className="text-lg font-semibold mb-3">Filtrar por tipo de joya</h3>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                        <button
-                            onClick={() => setFiltroTipoJoya("")}
-                            className={`px-4 py-2 rounded-full ${
-                                filtroTipoJoya === "" ? "bg-blue-600 text-white" : "bg-gray-200 hover:bg-gray-300"
-                            }`}
-                        >
-                            Todos ({todosLosProductos.length})
-                        </button>
-                        {TIPOS_DE_JOYAS.map((tipo) => (
-                            <button
-                                key={tipo}
-                                onClick={() => setFiltroTipoJoya(tipo)}
-                                className={`px-4 py-2 rounded-full ${
-                                    filtroTipoJoya === tipo ? "bg-blue-600 text-white" : "bg-gray-200 hover:bg-gray-300"
-                                }`}
-                            >
-                                {tipo} ({contarProductosPorTipo(tipo)})
-                            </button>
-                        ))}
-                    </div>
+            {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded mb-3 text-sm">
+                    {error}
                 </div>
             )}
 
-            {productosCargados && (
-                <p className="mb-4 text-gray-700">
-                    {productosFiltrados.length} producto(s) encontrado(s)
-                    {filtroTipoJoya && ` para el tipo: ${filtroTipoJoya}`}
-                </p>
-            )}
-
-            {productosCargados && (
-                <div className="overflow-x-auto">
-                    <table className="w-full border">
+            {productos.length === 0 && !cargando ? (
+                <p className="text-gray-500 text-center py-8">No se encontraron productos.</p>
+            ) : (
+                <div className="overflow-x-auto bg-white rounded shadow">
+                    <table className="w-full">
                         <thead>
-                            <tr className="bg-gray-200">
-                                <th className="p-1">Stock</th>
-                                <th className="p-1">Imagen</th>
-                                <th className="p-1">Nombre</th>
-                                <th className="p-1">Tarifa Pública</th>
-                                <th className="p-1">Precio Bodega</th>
-                                <th className="p-1">Tipo de Joya</th>
-                                <th className="p-1">Código de Barra</th>
-                                {isAdmin && <th className="p-1">Acciones</th>}
+                            <tr className="bg-gray-200 text-left text-sm">
+                                <th className="p-2">Stock</th>
+                                <th className="p-2">Imagen</th>
+                                <th className="p-2">Nombre</th>
+                                <th className="p-2">Tarifa</th>
+                                <th className="p-2">Bodega</th>
+                                <th className="p-2">Tipo</th>
+                                <th className="p-2">Código</th>
+                                {isAdmin && <th className="p-2">Acciones</th>}
                             </tr>
                         </thead>
                         <tbody>
-                            {productosFiltrados.map((producto) => (
-                                <tr key={producto._id} className="border-t hover:bg-gray-50">
-                                    <td className="p-1">{producto.stock}</td>
-                                    <td className="p-1">
-                                        <img
-                                            src={producto.imagen || "/noimagen.png"}
-                                            className="w-20 h-20 object-cover"
-                                            alt={producto.nombre}
-                                        />
+                            {productos.map((p) => (
+                                <tr key={p._id} className="border-t hover:bg-gray-50 text-sm">
+                                    <td className="p-2">{p.stock}</td>
+                                    <td className="p-2">
+                                        <img src={p.imagen || "/noimagen.png"} className="w-12 h-12 object-cover" alt="" loading="lazy" />
                                     </td>
-                                    <td className="p-1">{producto.nombre}</td>
-                                    <td className="p-1">${producto.tarifa_publica}</td>
-                                    <td className="p-1">${producto.preferentes}</td>
-                                    <td className="p-1">{producto.tipo_de_joya}</td>
-                                    <td className="p-1">
-                                        {producto.codigo_de_barras && (
-                                            <img
-                                                src={generarCodigoDeBarras(producto.codigo_de_barras)}
-                                                alt="Código de Barra"
-                                            />
+                                    <td className="p-2 font-medium">{p.nombre}</td>
+                                    <td className="p-2">${p.tarifa_publica}</td>
+                                    <td className="p-2">${p.preferentes}</td>
+                                    <td className="p-2">{p.tipo_de_joya}</td>
+                                    <td className="p-2">
+                                        {p.codigo_de_barras && (
+                                            <img src={generarCodigoDeBarras(p.codigo_de_barras)} alt="" className="h-8" />
                                         )}
                                     </td>
                                     {isAdmin && (
-                                        <td className="p-1">
-                                            <div className="flex flex-col space-y-2">
-                                                <button
-                                                    onClick={() => agregarAlCarrito(producto)}
-                                                    className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-700"
-                                                >
-                                                    Agregar al carrito
+                                        <td className="p-2">
+                                            <div className="flex flex-col gap-1">
+                                                <button onClick={() => agregarAlCarrito(p)} className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-700">
+                                                    + Carrito
                                                 </button>
-                                                <button
-                                                    onClick={() => eliminarProducto(producto._id)}
-                                                    className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-700"
-                                                >
+                                                <button onClick={() => eliminarProducto(p._id)} className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-700">
                                                     Eliminar
                                                 </button>
                                             </div>
@@ -307,6 +227,14 @@ function BodegaContent() {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {hasMore && (
+                <div className="text-center mt-4">
+                    <button onClick={cargarMas} disabled={cargando} className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-900 disabled:opacity-50">
+                        {cargando ? 'Cargando...' : 'Cargar más'}
+                    </button>
                 </div>
             )}
         </div>
