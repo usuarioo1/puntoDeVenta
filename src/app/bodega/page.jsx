@@ -12,7 +12,7 @@ import { apiBase } from "@/endpoints/api";
 const TIPOS_DE_JOYAS = [
     "AROS", "CONJUNTO", "COLGANTE", "CADENA", "ANILLO", "CAJA", "PIERCING",
 ];
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 100;
 
 function BodegaContent() {
     const { user, logout } = useAuth();
@@ -44,7 +44,8 @@ function BodegaContent() {
             const params = new URLSearchParams();
             if (searchTerm) params.set('search', searchTerm);
             if (tipoFiltro) params.set('tipo', tipoFiltro);
-            params.set('limit', PAGE_SIZE);
+            const hasFilter = !!(searchTerm || tipoFiltro);
+            params.set('limit', hasFilter ? 10000 : PAGE_SIZE);
             params.set('skip', offset);
             params.set('sort', 'nombre');
 
@@ -55,7 +56,7 @@ function BodegaContent() {
             const nuevos = data.productos || [];
             setProductos(prev => append ? [...prev, ...nuevos] : nuevos);
             setTotal(data.total || 0);
-            setHasMore(!!data.hasMore);
+            setHasMore(!hasFilter && !!data.hasMore);
         } catch (err) {
             if (err.name !== 'CanceledError') {
                 setError(err.response?.data?.error || 'Error al cargar productos');
