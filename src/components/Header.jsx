@@ -43,11 +43,6 @@ export default function Header() {
                                     + Producto
                                 </button>
                             </Link>
-                            <Link href="/bodega/editproduct">
-                                <button className="bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-800">
-                                    Editar
-                                </button>
-                            </Link>
                             <Link href="/bodega/ventas">
                                 <button className="bg-green-800 text-white px-3 py-1 rounded hover:bg-green-900">
                                     Ventas
@@ -69,6 +64,14 @@ export default function Header() {
                                 </button>
                             </Link>
                         </>
+                    )}
+
+                    {user && (
+                        <Link href="/bodega/editproduct">
+                            <button className="bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-800">
+                                Editar
+                            </button>
+                        </Link>
                     )}
 
                     {user && (
