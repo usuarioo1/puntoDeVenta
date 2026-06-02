@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import { apiBase } from "@/endpoints/api";
 
-export default function DashboardProductos() {
+function DashboardProductosContent() {
     const [nuevoProducto, setNuevoProducto] = useState({
         nombre: "",
         costo: "",
@@ -369,5 +370,13 @@ export default function DashboardProductos() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function DashboardProductosPage() {
+    return (
+        <ProtectedRoute requireAdmin>
+            <DashboardProductosContent />
+        </ProtectedRoute>
     );
 }

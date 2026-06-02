@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 // Función para formatear la fecha
 const formatDate = (date) => {
@@ -12,7 +13,7 @@ const formatDate = (date) => {
     return `${year}-${month}-${day}`;
 };
 
-export default function VentasListado() {
+function VentasListadoContent() {
     const [ventas, setVentas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -136,5 +137,13 @@ export default function VentasListado() {
                 Total de Ventas: ${totalVentas.toFixed(0)}
             </div>
         </div>
+    );
+}
+
+export default function VentasListadoPage() {
+    return (
+        <ProtectedRoute requireAdmin>
+            <VentasListadoContent />
+        </ProtectedRoute>
     );
 }

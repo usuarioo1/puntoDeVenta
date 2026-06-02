@@ -1,82 +1,38 @@
 'use client';
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { useRouter } from "next/navigation";
 import { useCarrito } from "@/context/CarritoContext";
+import { useAuth } from "@/context/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import { apiBase } from "@/endpoints/api";
 
+function VentaContent() {
+    const { logout } = useAuth();
+    const router = useRouter();
 
-export default function Venta() {
-    // Authentication state
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [username, setUsername] = useState("");
-    const [password, setPassword] = useState("");
-    const [authError, setAuthError] = useState("");
-
-    // Original states from POS component
     const { carrito, vaciarCarrito, agregarAlCarrito, eliminarDelCarrito } = useCarrito();
     const [codigoBarras, setCodigoBarras] = useState("");
     const [ventaIniciada, setVentaIniciada] = useState(false);
     const [productos, setProductos] = useState([]);
     const [mensaje, setMensaje] = useState("");
 
-    // Estados para los nuevos campos
-    const [tipoVenta, setTipoVenta] = useState("mayor"); 
+    const [tipoVenta, setTipoVenta] = useState("mayor");
     const [tipoPago, setTipoPago] = useState("efectivo");
     const [numeroBoleta, setNumeroBoleta] = useState("");
     const [tipoDocumento, setTipoDocumento] = useState("boleta");
 
-    // Load authentication status from localStorage on component mount
-    useEffect(() => {
-        const authStatus = localStorage.getItem('posAuthStatus');
-        if (authStatus === 'authenticated') {
-            setIsAuthenticated(true);
-        }
-    }, []);
-
-    // Function to handle login
-    const handleLogin = (e) => {
-        e.preventDefault();
-        
-        // Example credentials - in a real app, these would be securely stored
-        const validCredentials = [
-            { username: "admin", password: "admin123" },
-            { username: "vendedor", password: "venta2024" }
-        ];
-        
-        // Check if credentials are valid
-        const userFound = validCredentials.find(
-            cred => cred.username === username && cred.password === password
-        );
-        
-        if (userFound) {
-            setIsAuthenticated(true);
-            setAuthError("");
-            // Store auth status in localStorage
-            localStorage.setItem('posAuthStatus', 'authenticated');
-        } else {
-            setAuthError("Credenciales inválidas. Intente nuevamente.");
-        }
-    };
-
-    // Function to handle logout
     const handleLogout = () => {
-        setIsAuthenticated(false);
-        setUsername("");
-        setPassword("");
-        setVentaIniciada(false);
         vaciarCarrito();
-        localStorage.removeItem('posAuthStatus');
+        logout();
+        router.push('/login');
     };
 
-    useEffect(() => {
-        if (isAuthenticated) {
-            cargarProductos();
-        }
-    }, [isAuthenticated]);
+    useEffect(() => { cargarProductos(); }, []);
 
     const cargarProductos = async () => {
         try {
-            const res = await axios.get(`${apiBase}/productosPuntoDeVenta`); ``
+            const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
             if (res.data && Array.isArray(res.data.productos)) {
                 setProductos(res.data.productos);
                 console.log("Productos cargados:", res.data.productos.length);
@@ -219,65 +175,6 @@ export default function Venta() {
     const totalMayorista = carrito.reduce((sum, item) => sum + item.mayorista * item.cantidad, 0);
     const totalActual = tipoVenta === "mayor" ? totalMayorista : totalTarifaPublica;
 
-    // Login form if not authenticated
-    if (!isAuthenticated) {
-        return (
-            <div className="container mx-auto p-4 max-w-md">
-                <h1 className="text-2xl font-bold mb-6 text-center">Acceso al Punto de Venta</h1>
-                
-                {authError && (
-                    <div className="p-3 my-3 rounded bg-red-100 text-red-700">
-                        {authError}
-                    </div>
-                )}
-                
-                <form onSubmit={handleLogin} className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-                    <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="username">
-                            Usuario
-                        </label>
-                        <input 
-                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
-                            id="username" 
-                            type="text" 
-                            placeholder="Ingrese su usuario"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <div className="mb-6">
-                        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
-                            Contraseña
-                        </label>
-                        <input 
-                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" 
-                            id="password" 
-                            type="password" 
-                            placeholder="******************"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <div className="flex items-center justify-center">
-                        <button 
-                            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full" 
-                            type="submit"
-                        >
-                            Iniciar Sesión
-                        </button>
-                    </div>
-                    <div className="mt-4 text-center text-sm text-gray-500">
-                        <p>Usuario de prueba: admin</p>
-                        <p>Contraseña: admin123</p>
-                    </div>
-                </form>
-            </div>
-        );
-    }
-
-    // Original POS component if authenticated
     return (
         <div className="container mx-auto p-4">
             <div className="flex justify-between items-center mb-6">
@@ -500,5 +397,13 @@ export default function Venta() {
                 </>
             )}
         </div>
+    );
+}
+
+export default function PuntoDeVentaPage() {
+    return (
+        <ProtectedRoute requireAdmin>
+            <VentaContent />
+        </ProtectedRoute>
     );
 }

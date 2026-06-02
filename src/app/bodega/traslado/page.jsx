@@ -3,9 +3,10 @@ import { useState, useEffect, useRef } from 'react';
 import jsPDF from 'jspdf';
 import axios from 'axios';
 import JsBarcode from 'jsbarcode'; 
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { apiBase } from '@/endpoints/api';
 
-export default function GenerarPDF() {
+function GenerarPDFContent() {
     const [productos, setProductos] = useState([]);
     const [codigoManual, setCodigoManual] = useState("");
     const [cargandoProducto, setCargandoProducto] = useState(false);
@@ -545,5 +546,13 @@ export default function GenerarPDF() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function GenerarPDFPage() {
+    return (
+        <ProtectedRoute requireAdmin>
+            <GenerarPDFContent />
+        </ProtectedRoute>
     );
 }
