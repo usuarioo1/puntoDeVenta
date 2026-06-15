@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
-import JsBarcode from "jsbarcode";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCarrito } from "@/context/CarritoContext";
@@ -94,15 +93,6 @@ function BodegaContent() {
         } catch (err) {
             alert(err.response?.data?.message || 'No se pudo eliminar');
         }
-    };
-
-    const generarCodigoDeBarras = (codigo) => {
-        if (!codigo || typeof codigo !== "string") return "";
-        const canvas = document.createElement("canvas");
-        try {
-            JsBarcode(canvas, codigo, { format: "CODE128", width: 2, height: 40 });
-            return canvas.toDataURL();
-        } catch { return ""; }
     };
 
     const handleLogout = () => {
@@ -207,11 +197,7 @@ function BodegaContent() {
                                     <td className="p-2">${p.tarifa_publica}</td>
                                     <td className="p-2">${p.preferentes}</td>
                                     <td className="p-2">{p.tipo_de_joya}</td>
-                                    <td className="p-2">
-                                        {p.codigo_de_barras && (
-                                            <img src={generarCodigoDeBarras(p.codigo_de_barras)} alt="" className="h-8" />
-                                        )}
-                                    </td>
+                                    <td className="p-2">{p.codigo_de_barras}</td>
                                     {isAdmin && (
                                         <td className="p-2">
                                             <div className="flex flex-col gap-1">
