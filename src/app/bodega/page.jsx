@@ -28,6 +28,7 @@ function BodegaContent() {
     const [tipo, setTipo] = useState("");
     const [cargando, setCargando] = useState(false);
     const [error, setError] = useState("");
+    const [productoImagen, setProductoImagen] = useState(null);
 
     const abortRef = useRef(null);
     const debounceRef = useRef(null);
@@ -77,6 +78,23 @@ function BodegaContent() {
         }, 300);
         return () => clearTimeout(debounceRef.current);
     }, [search, tipo, fetchProductos]);
+
+    useEffect(() => {
+        if (!productoImagen) return;
+
+        const cerrarConEscape = (event) => {
+            if (event.key === 'Escape') setProductoImagen(null);
+        };
+
+        const overflowAnterior = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', cerrarConEscape);
+
+        return () => {
+            document.body.style.overflow = overflowAnterior;
+            window.removeEventListener('keydown', cerrarConEscape);
+        };
+    }, [productoImagen]);
 
     const cargarMas = () => {
         const newSkip = skip + PAGE_SIZE;
@@ -191,7 +209,20 @@ function BodegaContent() {
                                 <tr key={p._id} className="border-t hover:bg-gray-50 text-sm">
                                     <td className="p-2">{p.stock}</td>
                                     <td className="p-2">
-                                        <img src={p.imagen || "/noimagen.png"} className="w-12 h-12 object-cover" alt="" loading="lazy" />
+                                        <button
+                                            type="button"
+                                            onClick={() => setProductoImagen(p)}
+                                            className="group block rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                            aria-label={`Ampliar imagen de ${p.nombre}`}
+                                            title="Ver imagen ampliada"
+                                        >
+                                            <img
+                                                src={p.imagen || "/noimagen.png"}
+                                                className="w-12 h-12 object-cover rounded border border-gray-200 transition-transform group-hover:scale-105"
+                                                alt={p.nombre ? `Imagen de ${p.nombre}` : "Imagen del producto"}
+                                                loading="lazy"
+                                            />
+                                        </button>
                                     </td>
                                     <td className="p-2 font-medium">{p.nombre}</td>
                                     <td className="p-2">${p.tarifa_publica}</td>
@@ -222,6 +253,42 @@ function BodegaContent() {
                     <button onClick={cargarMas} disabled={cargando} className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-900 disabled:opacity-50">
                         {cargando ? 'Cargando...' : 'Cargar más'}
                     </button>
+                </div>
+            )}
+
+            {productoImagen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="imagen-producto-titulo"
+                    onClick={() => setProductoImagen(null)}
+                >
+                    <div
+                        className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
+                            <h2 id="imagen-producto-titulo" className="truncate text-lg font-semibold">
+                                {productoImagen.nombre || "Imagen del producto"}
+                            </h2>
+                            <button
+                                type="button"
+                                onClick={() => setProductoImagen(null)}
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-2xl leading-none text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                aria-label="Cerrar imagen ampliada"
+                            >
+                                &times;
+                            </button>
+                        </div>
+                        <div className="flex min-h-0 flex-1 items-center justify-center bg-gray-100 p-4">
+                            <img
+                                src={productoImagen.imagen || "/noimagen.png"}
+                                alt={productoImagen.nombre ? `Imagen ampliada de ${productoImagen.nombre}` : "Imagen ampliada del producto"}
+                                className="max-h-[78vh] max-w-full object-contain"
+                            />
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
