@@ -3,7 +3,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCarrito } from "@/context/CarritoContext";
 import { useAuth } from "@/context/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { apiBase } from "@/endpoints/api";
@@ -17,7 +16,6 @@ function BodegaContent() {
     const { user, logout } = useAuth();
     const router = useRouter();
     const isAdmin = user?.role === 'admin';
-    const { agregarAlCarrito } = useCarrito();
 
     const [productos, setProductos] = useState([]);
     const [total, setTotal] = useState(0);
@@ -197,7 +195,6 @@ function BodegaContent() {
                                 <th className="p-2">Stock</th>
                                 <th className="p-2">Imagen</th>
                                 <th className="p-2">Nombre</th>
-                                <th className="p-2">Tarifa</th>
                                 <th className="p-2">Bodega</th>
                                 <th className="p-2">Tipo</th>
                                 <th className="p-2">Código</th>
@@ -225,16 +222,12 @@ function BodegaContent() {
                                         </button>
                                     </td>
                                     <td className="p-2 font-medium">{p.nombre}</td>
-                                    <td className="p-2">${p.tarifa_publica}</td>
                                     <td className="p-2">${p.preferentes}</td>
                                     <td className="p-2">{p.tipo_de_joya}</td>
                                     <td className="p-2">{p.codigo_de_barras}</td>
                                     {isAdmin && (
                                         <td className="p-2">
                                             <div className="flex flex-col gap-1">
-                                                <button onClick={() => agregarAlCarrito(p)} className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-700">
-                                                    + Carrito
-                                                </button>
                                                 <button onClick={() => eliminarProducto(p._id)} className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-700">
                                                     Eliminar
                                                 </button>

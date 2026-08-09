@@ -1,10 +1,18 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import axios from 'axios';
 import JsBarcode from 'jsbarcode'; 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { apiBase } from '@/endpoints/api';
+
+const extraerProductos = (data) => {
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.productos)) return data.productos;
+    return [];
+};
+
+const normalizarCodigo = (codigo) => String(codigo ?? '').trim();
 
 function GenerarPDFContent() {
     const [productos, setProductos] = useState([]);
@@ -18,6 +26,27 @@ function GenerarPDFContent() {
     const [resultadosDescuento, setResultadosDescuento] = useState({ exitosos: [], errores: [] });
     const [tituloPDF, setTituloPDF] = useState(""); // Nuevo estado para el título del PDF
     const inputRef = useRef(null);
+    const indiceProductosRef = useRef(new Map());
+    const indiceInicializadoRef = useRef(false);
+    const indiceCargaPromiseRef = useRef(null);
+    const ultimaBusquedaRef = useRef({ codigo: '', ts: 0 });
+
+    const limpiarCamposTraslado = () => {
+        setProductos([]);
+        setProductosSeleccionados(new Set());
+        setCodigoManual("");
+        setProductoEncontrado(null);
+        setCantidad(1);
+        setTituloPDF("");
+        if (inputRef.current) {
+            inputRef.current.focus();
+        }
+    };
+
+    const cerrarResultadosYResetearVista = () => {
+        setMostrarResultados(false);
+        limpiarCamposTraslado();
+    };
 
     // Enfocar automáticamente el campo de entrada al cargar la página
     useEffect(() => {
@@ -26,14 +55,84 @@ function GenerarPDFContent() {
         }
     }, []);
 
+    const cargarIndiceProductos = useCallback(async () => {
+        if (indiceInicializadoRef.current) return;
+        if (indiceCargaPromiseRef.current) {
+            await indiceCargaPromiseRef.current;
+            return;
+        }
+
+        indiceCargaPromiseRef.current = (async () => {
+            const res = await axios.get(`${apiBase}/productosPuntoDeVenta`, {
+                params: { limit: 10000, skip: 0, sort: 'codigo_de_barras' }
+            });
+
+            const listado = extraerProductos(res.data);
+            const indice = new Map();
+
+            listado.forEach((producto) => {
+                const codigo = normalizarCodigo(producto?.codigo_de_barras);
+                if (codigo) indice.set(codigo, producto);
+            });
+
+            indiceProductosRef.current = indice;
+            indiceInicializadoRef.current = true;
+        })();
+
+        try {
+            await indiceCargaPromiseRef.current;
+        } finally {
+            indiceCargaPromiseRef.current = null;
+        }
+    }, []);
+
+    useEffect(() => {
+        const timerId = window.setTimeout(() => {
+            cargarIndiceProductos().catch((error) => {
+                console.warn('No se pudo precargar el indice de productos:', error);
+            });
+        }, 0);
+
+        return () => window.clearTimeout(timerId);
+    }, [cargarIndiceProductos]);
+
     // Buscar producto por código
-    const buscarProducto = async (codigo) => {
+    const buscarProducto = async (codigoIngresado) => {
+        const codigo = normalizarCodigo(codigoIngresado);
+        if (!codigo) return;
+
+        const ahora = Date.now();
+        if (
+            ultimaBusquedaRef.current.codigo === codigo &&
+            ahora - ultimaBusquedaRef.current.ts < 500
+        ) {
+            return;
+        }
+        ultimaBusquedaRef.current = { codigo, ts: ahora };
+
         setCargandoProducto(true);
         try {
-            const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
-            const encontrado = res.data.productos.find(
-                p => p.codigo_de_barras === codigo
-            );
+            let encontrado = indiceProductosRef.current.get(codigo);
+
+            if (!encontrado) {
+                const res = await axios.get(`${apiBase}/productosPuntoDeVenta`, {
+                    params: { search: codigo, limit: 25, skip: 0 }
+                });
+
+                const candidatos = extraerProductos(res.data);
+                encontrado = candidatos.find(
+                    (p) => normalizarCodigo(p.codigo_de_barras) === codigo
+                );
+
+                if (encontrado) {
+                    indiceProductosRef.current.set(codigo, encontrado);
+                }
+            }
+
+            if (!encontrado && !indiceInicializadoRef.current) {
+                await cargarIndiceProductos();
+                encontrado = indiceProductosRef.current.get(codigo);
+            }
             
             if (encontrado) {
                 setProductoEncontrado(encontrado);
@@ -53,19 +152,21 @@ function GenerarPDFContent() {
     // Confirmar y agregar producto con la cantidad especificada
     const confirmarAgregarProducto = () => {
         if (!productoEncontrado || cantidad < 1) return;
+
+        const codigoProducto = normalizarCodigo(productoEncontrado.codigo_de_barras);
         
         const productoExistente = productos.find(
-            p => p.codigo_de_barras === productoEncontrado.codigo_de_barras
+            (p) => normalizarCodigo(p.codigo_de_barras) === codigoProducto
         );
 
         if (productoExistente) {
-            setProductos(productos.map(p =>
-                p.codigo_de_barras === productoEncontrado.codigo_de_barras
+            setProductos((prev) => prev.map((p) =>
+                normalizarCodigo(p.codigo_de_barras) === codigoProducto
                     ? { ...p, cantidad: p.cantidad + cantidad }
                     : p
             ));
         } else {
-            setProductos([...productos, { 
+            setProductos((prev) => [...prev, { 
                 ...productoEncontrado, 
                 cantidad: cantidad 
             }]);
@@ -82,7 +183,7 @@ function GenerarPDFContent() {
 
     // Manejar cambio en el campo de código
     const handleCodigoChange = (e) => {
-        const codigo = e.target.value;
+        const codigo = normalizarCodigo(e.target.value);
         setCodigoManual(codigo);
 
         if (codigo.length === 13) {
@@ -93,8 +194,9 @@ function GenerarPDFContent() {
     // Manejar envío manual del formulario
     const handleManualSubmit = (e) => {
         e.preventDefault();
-        if (codigoManual.trim()) {
-            buscarProducto(codigoManual);
+        const codigo = normalizarCodigo(codigoManual);
+        if (codigo) {
+            buscarProducto(codigo);
         }
     };
 
@@ -148,13 +250,6 @@ function GenerarPDFContent() {
 
             setResultadosDescuento(response.data);
             setMostrarResultados(true);
-
-            // Limpiar selecciones si todo fue exitoso
-            if (response.data.totalErrores === 0) {
-                setProductosSeleccionados(new Set());
-                // Opcional: limpiar la lista de productos
-                // setProductos([]);
-            }
 
         } catch (error) {
             console.error("Error al descontar stock:", error);
@@ -405,10 +500,10 @@ function GenerarPDFContent() {
                         
                         <div className="flex justify-end">
                             <button
-                                onClick={() => setMostrarResultados(false)}
+                                onClick={cerrarResultadosYResetearVista}
                                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                             >
-                                Cerrar
+                                OK
                             </button>
                         </div>
                     </div>

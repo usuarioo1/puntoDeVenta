@@ -1,11 +1,19 @@
 'use client';
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { useCarrito } from "@/context/CarritoContext";
 import { useAuth } from "@/context/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { apiBase } from "@/endpoints/api";
+
+const extraerProductos = (data) => {
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.productos)) return data.productos;
+    return [];
+};
+
+const normalizarCodigo = (codigo) => String(codigo ?? "").trim();
 
 function VentaContent() {
     const { logout } = useAuth();
@@ -15,12 +23,28 @@ function VentaContent() {
     const [codigoBarras, setCodigoBarras] = useState("");
     const [ventaIniciada, setVentaIniciada] = useState(false);
     const [productos, setProductos] = useState([]);
+    const [cargandoProductos, setCargandoProductos] = useState(false);
     const [mensaje, setMensaje] = useState("");
 
     const [tipoVenta, setTipoVenta] = useState("mayor");
     const [tipoPago, setTipoPago] = useState("efectivo");
     const [numeroBoleta, setNumeroBoleta] = useState("");
     const [tipoDocumento, setTipoDocumento] = useState("boleta");
+
+    const productosPorCodigo = useMemo(() => {
+        const indice = new Map();
+        productos.forEach((producto) => {
+            const codigo = normalizarCodigo(producto?.codigo_de_barras);
+            if (codigo) {
+                indice.set(codigo, producto);
+            }
+        });
+        return indice;
+    }, [productos]);
+
+    const obtenerProductoPorCodigo = useCallback((codigo) => {
+        return productosPorCodigo.get(normalizarCodigo(codigo));
+    }, [productosPorCodigo]);
 
     const handleLogout = () => {
         vaciarCarrito();
@@ -31,18 +55,21 @@ function VentaContent() {
     useEffect(() => { cargarProductos(); }, []);
 
     const cargarProductos = async () => {
+        setCargandoProductos(true);
         try {
             const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
-            if (res.data && Array.isArray(res.data.productos)) {
-                setProductos(res.data.productos);
-                console.log("Productos cargados:", res.data.productos.length);
-            } else {
-                console.error("Formato de respuesta incorrecto:", res.data);
-                setMensaje("Error al cargar productos: formato de respuesta incorrecto");
+            const productosCargados = extraerProductos(res.data);
+            setProductos(productosCargados);
+            console.log("Productos cargados:", productosCargados.length);
+
+            if (productosCargados.length === 0) {
+                setMensaje("No hay productos cargados");
             }
         } catch (error) {
             console.error("Error al cargar productos:", error);
             setMensaje("Error al cargar productos: " + error.message);
+        } finally {
+            setCargandoProductos(false);
         }
     };
 
@@ -52,35 +79,41 @@ function VentaContent() {
         setMensaje("");
     };
 
-    const agregarAlCarritoHandler = (codigo = null) => {
-        const codigoABuscar = codigo || codigoBarras;
+    const agregarAlCarritoHandler = useCallback((codigo = null) => {
+        const codigoABuscar = normalizarCodigo(codigo || codigoBarras);
         
         if (!codigoABuscar) {
             setMensaje("Ingrese un código de barras");
             return;
         }
-        
-        if (!Array.isArray(productos) || productos.length === 0) {
-            setMensaje("No hay productos cargados");
-            console.error("productos no es un array o está vacío");
+
+        if (cargandoProductos) {
+            setMensaje("Cargando productos, intente nuevamente en unos segundos");
             return;
         }
         
-        console.log("Buscando producto con código:", codigoABuscar);
+        if (!Array.isArray(productos) || productos.length === 0) {
+            setMensaje("No hay productos cargados. Reintentando carga...");
+            cargarProductos();
+            return;
+        }
         
-        const producto = productos.find((p) => p.codigo_de_barras === codigoABuscar);
+        const producto = obtenerProductoPorCodigo(codigoABuscar);
         
         if (producto) {
-            console.log("Producto encontrado:", producto);
             agregarAlCarrito(producto);
             setCodigoBarras("");
             setMensaje(`Producto "${producto.nombre}" agregado al carrito`);
         } else {
-            console.log("Producto no encontrado. Códigos disponibles:", 
-                productos.map(p => p.codigo_de_barras).join(", "));
             setMensaje(`Producto con código ${codigoABuscar} no encontrado`);
         }
-    };
+    }, [
+        codigoBarras,
+        cargandoProductos,
+        productos,
+        obtenerProductoPorCodigo,
+        agregarAlCarrito,
+    ]);
 
     const confirmarVenta = async () => {
         if (carrito.length === 0) {
@@ -141,19 +174,10 @@ function VentaContent() {
                     }
             
                     if (e.key === "Enter" && buffer.length > 0) {
-                        console.log("Código escaneado:", buffer);
                         // Buscar y agregar producto directamente con el buffer
-                        const tempBuffer = buffer; // Guardar buffer antes de limpiarlo
+                        const tempBuffer = normalizarCodigo(buffer); // Guardar buffer antes de limpiarlo
                         buffer = "";
-                        
-                        // Buscar el producto y agregarlo al carrito
-                        const producto = productos.find((p) => p.codigo_de_barras === tempBuffer);
-                        if (producto) {
-                            agregarAlCarrito(producto);
-                            setMensaje(`Producto "${producto.nombre}" agregado al carrito`);
-                        } else {
-                            setMensaje(`Producto con código ${tempBuffer} no encontrado`);
-                        }
+                        agregarAlCarritoHandler(tempBuffer);
                     }
             
                     timeout = setTimeout(() => {
@@ -169,7 +193,7 @@ function VentaContent() {
             window.removeEventListener("keydown", handleKeyPress);
             if (timeout) clearTimeout(timeout);
         };
-    }, [productos, ventaIniciada, agregarAlCarrito]);
+    }, [ventaIniciada, agregarAlCarritoHandler]);
     
     const totalTarifaPublica = carrito.reduce((sum, item) => sum + item.tarifa_publica * item.cantidad, 0);
     const totalMayorista = carrito.reduce((sum, item) => sum + item.mayorista * item.cantidad, 0);
@@ -206,7 +230,7 @@ function VentaContent() {
                             type="text"
                             placeholder="Escanear o ingresar código de barras"
                             value={codigoBarras}
-                            onChange={(e) => setCodigoBarras(e.target.value)}
+                            onChange={(e) => setCodigoBarras(normalizarCodigo(e.target.value))}
                             className="border p-2 mr-2 flex-grow"
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") {
