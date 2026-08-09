@@ -120,36 +120,39 @@ function BodegaContent() {
 
     return (
         <div className="container mx-auto p-4">
-            <div className="flex justify-between items-center mb-4">
-                <h1 className="text-2xl font-bold">Bodega</h1>
-                <div className="flex items-center gap-3">
-                    <span className="text-sm text-gray-600">
-                        {user?.name || user?.username} ({user?.role})
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold text-gray-800">Bodega</h1>
+                <div className="flex items-center gap-4">
+                    <span className="text-sm text-gray-600 font-medium">
+                        {user?.name || user?.username} <span className="text-xs opacity-75">({user?.role})</span>
                     </span>
-                    <button onClick={handleLogout} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700">
+                    <button 
+                        onClick={handleLogout} 
+                        className="bg-red-500/20 backdrop-blur-md border border-red-400/30 text-red-800 px-4 py-2 rounded-lg hover:bg-red-500/40 shadow-sm transition-all duration-300 active:scale-95 font-medium"
+                    >
                         Cerrar Sesión
                     </button>
                 </div>
             </div>
 
-            <div className="bg-white p-4 rounded shadow mb-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="bg-white/40 backdrop-blur-md border border-white/20 p-6 rounded-xl shadow-sm mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label className="block text-sm font-semibold mb-1">Buscar</label>
+                        <label className="block text-sm font-semibold mb-1 text-gray-700">Buscar</label>
                         <input
                             type="text"
                             placeholder="Nombre o código de barras..."
                             value={searchInput}
                             onChange={(e) => { setSearchInput(e.target.value); setSearch(e.target.value); }}
-                            className="border p-2 w-full rounded"
+                            className="border border-gray-300/50 bg-white/50 backdrop-blur-sm p-2 w-full rounded-lg focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold mb-1">Tipo de joya</label>
+                        <label className="block text-sm font-semibold mb-1 text-gray-700">Tipo de joya</label>
                         <select
                             value={tipo}
                             onChange={(e) => setTipo(e.target.value)}
-                            className="border p-2 w-full rounded"
+                            className="border border-gray-300/50 bg-white/50 backdrop-blur-sm p-2 w-full rounded-lg focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
                         >
                             <option value="">Todos</option>
                             {TIPOS_DE_JOYAS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -159,18 +162,26 @@ function BodegaContent() {
                         {isAdmin && (
                             <>
                                 <Link href="/bodega/addproduct">
-                                    <button className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-700">+ Producto</button>
+                                    <button className="bg-blue-500/20 backdrop-blur-md border border-blue-400/30 text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-500/40 shadow-sm transition-all duration-300 active:scale-95 font-medium">
+                                        + Producto
+                                    </button>
                                 </Link>
                                 <Link href="/bodega/ventas">
-                                    <button className="bg-green-800 text-white px-3 py-2 rounded hover:bg-green-900">Ventas</button>
+                                    <button className="bg-green-500/20 backdrop-blur-md border border-green-400/30 text-green-800 px-3 py-2 rounded-lg hover:bg-green-500/40 shadow-sm transition-all duration-300 active:scale-95 font-medium">
+                                        Ventas
+                                    </button>
                                 </Link>
                                 <Link href="/bodega/traslado">
-                                    <button className="bg-purple-800 text-white px-3 py-2 rounded hover:bg-purple-900">Traslado</button>
+                                    <button className="bg-purple-500/20 backdrop-blur-md border border-purple-400/30 text-purple-800 px-3 py-2 rounded-lg hover:bg-purple-500/40 shadow-sm transition-all duration-300 active:scale-95 font-medium">
+                                        Traslado
+                                    </button>
                                 </Link>
                             </>
                         )}
                         <Link href="/bodega/editproduct">
-                            <button className="bg-yellow-600 text-white px-3 py-2 rounded hover:bg-yellow-800">Editar</button>
+                            <button className="bg-yellow-500/20 backdrop-blur-md border border-yellow-400/30 text-yellow-800 px-3 py-2 rounded-lg hover:bg-yellow-500/40 shadow-sm transition-all duration-300 active:scale-95 font-medium">
+                                Editar
+                            </button>
                         </Link>
                     </div>
                 </div>
