@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
-    const { login } = useAuth();
+    const { login, getDefaultRoute } = useAuth();
     const router = useRouter();
     const [form, setForm] = useState({ email: '', password: '' });
     const [error, setError] = useState('');
@@ -20,11 +20,7 @@ export default function LoginPage() {
         setLoading(true);
         try {
             const user = await login(form.email, form.password);
-            if (user.role === 'admin') {
-                router.replace('/');
-            } else {
-                router.replace('/bodega');
-            }
+            router.replace(getDefaultRoute(user));
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Error al iniciar sesión');
         } finally {

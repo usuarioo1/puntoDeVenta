@@ -7,14 +7,24 @@ export const CarritoProvider = ({ children }) => {
     const [carrito, setCarrito] = useState([]);
 
     const agregarAlCarrito = (producto) => {
+        const delta = Number.isFinite(Number(producto?.cantidad)) && Number(producto.cantidad) !== 0
+            ? Number(producto.cantidad)
+            : 1;
+
         setCarrito((prevCarrito) => {
             const productoEnCarrito = prevCarrito.find((item) => item._id === producto._id);
             if (productoEnCarrito) {
+                const nuevaCantidad = productoEnCarrito.cantidad + delta;
+
+                if (nuevaCantidad <= 0) {
+                    return prevCarrito.filter((item) => item._id !== producto._id);
+                }
+
                 return prevCarrito.map((item) =>
-                    item._id === producto._id ? { ...item, cantidad: item.cantidad + 1 } : item
+                    item._id === producto._id ? { ...item, cantidad: nuevaCantidad } : item
                 );
             } else {
-                return [...prevCarrito, { ...producto, cantidad: 1 }];
+                return [...prevCarrito, { ...producto, cantidad: delta > 0 ? delta : 1 }];
             }
         });
     };

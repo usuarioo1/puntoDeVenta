@@ -1,33 +1,57 @@
 "use client";
-import { useState, useEffect } from "react";
-import axios from "axios";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { useBodega } from "@/context/BodegaContext";
 
 function ResumenInventarioContent() {
-  const [resumen, setResumen] = useState([]);
-  const [totales, setTotales] = useState({ cantidadTotal: 0, valorTotal: 0 });
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState(null);
   const [fecha, setFecha] = useState(null);
+  const {
+    todosLosProductos,
+    cargando,
+    sincronizando,
+    error,
+    refrescarProductos,
+    productosCargados,
+  } = useBodega();
 
   useEffect(() => {
-    cargarResumen();
-  }, []);
+    if (!productosCargados) return;
+    setFecha(new Date().toISOString());
+  }, [productosCargados, todosLosProductos]);
+
+  const resumen = useMemo(() => {
+    const acumulado = {};
+
+    todosLosProductos.forEach((producto) => {
+      const tipo = producto.tipo_de_joya || 'SIN TIPO';
+      const cantidad = 1;
+      const precioBodega = parseFloat(producto.preferentes ?? producto.precio_bodega) || 0;
+
+      if (!acumulado[tipo]) {
+        acumulado[tipo] = { tipo, cantidad: 0, valorTotal: 0 };
+      }
+
+      acumulado[tipo].cantidad += cantidad;
+      acumulado[tipo].valorTotal += precioBodega;
+    });
+
+    return Object.values(acumulado).sort((a, b) => a.tipo.localeCompare(b.tipo));
+  }, [todosLosProductos]);
+
+  const totales = useMemo(() => {
+    return resumen.reduce((acc, item) => ({
+      cantidadTotal: acc.cantidadTotal + item.cantidad,
+      valorTotal: acc.valorTotal + item.valorTotal
+    }), { cantidadTotal: 0, valorTotal: 0 });
+  }, [resumen]);
 
   const cargarResumen = async () => {
     try {
-      setCargando(true);
-      setError(null);
-      const res = await axios.get('/api/resumenInventario');
-      setResumen(res.data.resumen || []);
-      setTotales(res.data.totales || { cantidadTotal: 0, valorTotal: 0 });
-      setFecha(res.data.fecha);
-    } catch (error) {
-      console.error("Error al cargar resumen:", error);
-      setError("Error al cargar el resumen del inventario");
-    } finally {
-      setCargando(false);
+      await refrescarProductos();
+      setFecha(new Date().toISOString());
+    } catch (refreshError) {
+      console.error("Error al cargar resumen:", refreshError);
     }
   };
 
@@ -70,9 +94,9 @@ function ResumenInventarioContent() {
           <button
             onClick={cargarResumen}
             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
-            disabled={cargando}
+            disabled={cargando || sincronizando}
           >
-            {cargando ? (
+            {cargando || sincronizando ? (
               <>
                 <svg
                   className="animate-spin h-5 w-5 text-white"
@@ -192,7 +216,7 @@ function ResumenInventarioContent() {
       </div>
 
       {/* Tabla de resumen */}
-      {cargando ? (
+      {cargando && !productosCargados ? (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
           <p className="mt-4 text-gray-600">Cargando resumen de inventario...</p>

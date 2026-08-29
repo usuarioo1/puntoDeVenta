@@ -5,23 +5,26 @@ import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 
 export default function HomePage() {
-    const { user, loading, logout } = useAuth();
+    const { user, loading, logout, isPosOnlyUser, canAccessBodega, canAccessPuntoDeVenta, getDefaultRoute } = useAuth();
     const router = useRouter();
+    const usuarioSoloPuntoDeVenta = isPosOnlyUser(user);
+    const isAdmin = user?.role === 'admin';
 
     useEffect(() => {
         if (loading) return;
         if (!user) router.replace('/login');
-    }, [user, loading, router]);
+        if (user && usuarioSoloPuntoDeVenta) {
+            router.replace(getDefaultRoute(user));
+        }
+    }, [user, loading, router, usuarioSoloPuntoDeVenta, getDefaultRoute]);
 
-    if (loading || !user) {
+    if (loading || !user || usuarioSoloPuntoDeVenta) {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <p className="text-gray-500">Cargando...</p>
             </div>
         );
     }
-
-    const isAdmin = user.role === 'admin';
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
@@ -33,13 +36,15 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col gap-4 w-full max-w-xs">
-                <Link href="/bodega">
-                    <button className="w-full text-2xl bg-red-600 text-white py-3 px-4 rounded-lg shadow-md hover:bg-red-700 transition duration-300">
-                        Bodega
-                    </button>
-                </Link>
+                {canAccessBodega(user) && (
+                    <Link href="/bodega">
+                        <button className="w-full text-2xl bg-red-600 text-white py-3 px-4 rounded-lg shadow-md hover:bg-red-700 transition duration-300">
+                            Bodega
+                        </button>
+                    </Link>
+                )}
 
-                {isAdmin && (
+                {canAccessPuntoDeVenta(user) && (
                     <Link href="/punto-de-venta">
                         <button className="w-full text-2xl bg-blue-700 text-white py-3 px-4 rounded-lg shadow-md hover:bg-blue-800 transition duration-300">
                             Punto de Venta

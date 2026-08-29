@@ -4,6 +4,22 @@ import axios from 'axios';
 import { apiBase } from '@/endpoints/api';
 
 const AuthContext = createContext();
+const POS_ONLY_USERS = new Set(['vilmaalfaro@apback.local']);
+
+const normalizeEmail = (email) => String(email ?? '').trim().toLowerCase();
+
+const isPosOnlyUser = (candidateUser) => POS_ONLY_USERS.has(normalizeEmail(candidateUser?.email));
+
+const canAccessBodega = (candidateUser) => Boolean(candidateUser) && !isPosOnlyUser(candidateUser);
+
+const canAccessPuntoDeVenta = (candidateUser) => Boolean(candidateUser) && (candidateUser?.role === 'admin' || isPosOnlyUser(candidateUser));
+
+const getDefaultRoute = (candidateUser) => {
+    if (!candidateUser) return '/login';
+    if (isPosOnlyUser(candidateUser)) return '/punto-de-venta';
+    if (candidateUser.role === 'admin') return '/';
+    return '/bodega';
+};
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -59,10 +75,21 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('user');
     };
 
-    const isAdmin = () => user?.role === 'admin';
+    const isAdmin = (candidateUser = user) => candidateUser?.role === 'admin';
 
     return (
-        <AuthContext.Provider value={{ user, token, loading, login, logout, isAdmin }}>
+        <AuthContext.Provider value={{
+            user,
+            token,
+            loading,
+            login,
+            logout,
+            isAdmin,
+            isPosOnlyUser: (candidateUser = user) => isPosOnlyUser(candidateUser),
+            canAccessBodega: (candidateUser = user) => canAccessBodega(candidateUser),
+            canAccessPuntoDeVenta: (candidateUser = user) => canAccessPuntoDeVenta(candidateUser),
+            getDefaultRoute: (candidateUser = user) => getDefaultRoute(candidateUser),
+        }}>
             {children}
         </AuthContext.Provider>
     );

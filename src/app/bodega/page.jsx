@@ -1,11 +1,11 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { useBodega } from "@/context/BodegaContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { apiBase } from "@/endpoints/api";
 
 const TIPOS_DE_JOYAS = [
     "AROS", "CONJUNTO", "COLGANTE", "CADENA", "ANILLO", "CAJA", "PIERCING",
@@ -14,68 +14,35 @@ const PAGE_SIZE = 100;
 
 function BodegaContent() {
     const { user, logout } = useAuth();
+    const {
+        todosLosProductos,
+        cargando: cargandoCatalogo,
+        sincronizando,
+        error: errorCatalogo,
+        eliminarProductoDelCache,
+    } = useBodega();
     const router = useRouter();
     const isAdmin = user?.role === 'admin';
 
-    const [productos, setProductos] = useState([]);
-    const [total, setTotal] = useState(0);
-    const [hasMore, setHasMore] = useState(false);
     const [skip, setSkip] = useState(0);
     const [search, setSearch] = useState("");
     const [searchInput, setSearchInput] = useState("");
     const [tipo, setTipo] = useState("");
-    const [cargando, setCargando] = useState(false);
-    const [error, setError] = useState("");
+    const [errorAccion, setErrorAccion] = useState("");
     const [productoImagen, setProductoImagen] = useState(null);
 
-    const abortRef = useRef(null);
-    const debounceRef = useRef(null);
-
-    const fetchProductos = useCallback(async ({ searchTerm, tipoFiltro, offset, append = false }) => {
-        if (abortRef.current) abortRef.current.abort();
-        const controller = new AbortController();
-        abortRef.current = controller;
-
-        setCargando(true);
-        setError("");
-        try {
-            const params = new URLSearchParams();
-            if (searchTerm) params.set('search', searchTerm);
-            if (tipoFiltro) params.set('tipo', tipoFiltro);
-            const hasFilter = !!(searchTerm || tipoFiltro);
-            params.set('limit', hasFilter ? 10000 : PAGE_SIZE);
-            params.set('skip', offset);
-            params.set('sort', 'nombre');
-
-            const { data } = await axios.get(`${apiBase}/productosPuntoDeVenta?${params}`, {
-                signal: controller.signal
-            });
-
-            const nuevos = data.productos || [];
-            setProductos(prev => append ? [...prev, ...nuevos] : nuevos);
-            setTotal(data.total || 0);
-            setHasMore(!hasFilter && !!data.hasMore);
-        } catch (err) {
-            if (err.name !== 'CanceledError') {
-                setError(err.response?.data?.error || 'Error al cargar productos');
-            }
-        } finally {
-            setCargando(false);
-        }
-    }, []);
-
     useEffect(() => {
-        fetchProductos({ searchTerm: '', tipoFiltro: '', offset: 0 });
-    }, [fetchProductos]);
-
-    useEffect(() => {
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => {
+        const timeoutId = window.setTimeout(() => {
             setSkip(0);
-            fetchProductos({ searchTerm: search, tipoFiltro: tipo, offset: 0 });
+            setSearch(searchInput);
         }, 300);
-        return () => clearTimeout(debounceRef.current);
-    }, [search, tipo, fetchProductos]);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [searchInput]);
+
+    useEffect(() => {
+        setSkip(0);
+    }, [tipo]);
 
     useEffect(() => {
         if (!productoImagen) return;
@@ -94,20 +61,49 @@ function BodegaContent() {
         };
     }, [productoImagen]);
 
+    const productosFiltrados = useMemo(() => {
+        const termino = search.trim().toLowerCase();
+        const tipoSeleccionado = tipo.trim().toLowerCase();
+
+        return todosLosProductos
+            .filter((producto) => {
+                const nombre = String(producto?.nombre ?? '').toLowerCase();
+                const codigo = String(producto?.codigo_de_barras ?? '').toLowerCase();
+                const tipoDeJoya = String(producto?.tipo_de_joya ?? '').toLowerCase();
+
+                const coincideBusqueda = !termino || nombre.includes(termino) || codigo.includes(termino);
+                const coincideTipo = !tipoSeleccionado || tipoDeJoya === tipoSeleccionado;
+
+                return coincideBusqueda && coincideTipo;
+            })
+            .reverse();
+    }, [search, tipo, todosLosProductos]);
+
+    const total = productosFiltrados.length;
+    const hayFiltros = Boolean(search || tipo);
+    const limiteActual = hayFiltros ? total : skip + PAGE_SIZE;
+    const productos = useMemo(
+        () => productosFiltrados.slice(0, limiteActual),
+        [limiteActual, productosFiltrados]
+    );
+    const hasMore = !hayFiltros && productos.length < total;
+    const cargando = cargandoCatalogo && todosLosProductos.length === 0;
+    const error = errorAccion || errorCatalogo;
+
     const cargarMas = () => {
-        const newSkip = skip + PAGE_SIZE;
-        setSkip(newSkip);
-        fetchProductos({ searchTerm: search, tipoFiltro: tipo, offset: newSkip, append: true });
+        setSkip((prev) => prev + PAGE_SIZE);
     };
 
     const eliminarProducto = async (id) => {
         if (!window.confirm('¿Eliminar este producto?')) return;
         try {
+            setErrorAccion('');
             await axios.delete(`/api/productosPuntoDeVenta?id=${id}`);
-            setProductos(prev => prev.filter(p => p._id !== id));
-            setTotal(t => t - 1);
+            eliminarProductoDelCache(id);
         } catch (err) {
-            alert(err.response?.data?.message || 'No se pudo eliminar');
+            const message = err.response?.data?.mensaje || err.response?.data?.error || 'No se pudo eliminar';
+            setErrorAccion(message);
+            alert(message);
         }
     };
 
@@ -171,9 +167,9 @@ function BodegaContent() {
                                         Ventas
                                     </button>
                                 </Link>
-                                <Link href="/bodega/traslado">
-                                    <button className="bg-purple-500/20 backdrop-blur-md border border-purple-400/30 text-purple-800 px-3 py-2 rounded-lg hover:bg-purple-500/40 shadow-sm transition-all duration-300 active:scale-95 font-medium">
-                                        Traslado
+                                <Link href="/bodega/abastecer-tienda">
+                                    <button className="bg-emerald-500/20 backdrop-blur-md border border-emerald-400/30 text-emerald-800 px-3 py-2 rounded-lg hover:bg-emerald-500/40 shadow-sm transition-all duration-300 active:scale-95 font-medium">
+                                        Abastecer Tienda
                                     </button>
                                 </Link>
                             </>
@@ -186,7 +182,11 @@ function BodegaContent() {
                     </div>
                 </div>
                 <p className="text-sm text-gray-600 mt-2">
-                    {cargando ? 'Cargando...' : `${productos.length} de ${total} producto(s)`}
+                    {cargando
+                        ? 'Cargando catálogo...'
+                        : sincronizando
+                            ? `Actualizando catálogo... ${productos.length} de ${total} producto(s)`
+                            : `${productos.length} de ${total} producto(s)`}
                 </p>
             </div>
 
@@ -203,7 +203,8 @@ function BodegaContent() {
                     <table className="w-full">
                         <thead>
                             <tr className="bg-gray-200 text-left text-sm">
-                                <th className="p-2">Stock</th>
+                                <th className="p-2">Stock Bodega</th>
+                                <th className="p-2">Stock Tienda</th>
                                 <th className="p-2">Imagen</th>
                                 <th className="p-2">Nombre</th>
                                 <th className="p-2">Bodega</th>
@@ -216,6 +217,7 @@ function BodegaContent() {
                             {productos.map((p) => (
                                 <tr key={p._id} className="border-t hover:bg-gray-50 text-sm">
                                     <td className="p-2">{p.stock}</td>
+                                    <td className="p-2">{p.stock_tienda ?? 0}</td>
                                     <td className="p-2">
                                         <button
                                             type="button"

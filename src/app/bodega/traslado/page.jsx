@@ -1,20 +1,21 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import axios from 'axios';
 import JsBarcode from 'jsbarcode'; 
+import { useBodega } from '@/context/BodegaContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { apiBase } from '@/endpoints/api';
-
-const extraerProductos = (data) => {
-    if (Array.isArray(data)) return data;
-    if (data && Array.isArray(data.productos)) return data.productos;
-    return [];
-};
 
 const normalizarCodigo = (codigo) => String(codigo ?? '').trim();
+const abastecerTiendaApi = '/api/productosPuntoDeVenta/abastecerTienda';
 
 function GenerarPDFContent() {
+    const {
+        todosLosProductos,
+        productosCargados,
+        asegurarProductos,
+        actualizarProductosEnCache,
+    } = useBodega();
     const [productos, setProductos] = useState([]);
     const [codigoManual, setCodigoManual] = useState("");
     const [cargandoProducto, setCargandoProducto] = useState(false);
@@ -26,10 +27,18 @@ function GenerarPDFContent() {
     const [resultadosDescuento, setResultadosDescuento] = useState({ exitosos: [], errores: [] });
     const [tituloPDF, setTituloPDF] = useState(""); // Nuevo estado para el título del PDF
     const inputRef = useRef(null);
-    const indiceProductosRef = useRef(new Map());
-    const indiceInicializadoRef = useRef(false);
-    const indiceCargaPromiseRef = useRef(null);
     const ultimaBusquedaRef = useRef({ codigo: '', ts: 0 });
+
+    const productosPorCodigo = useMemo(() => {
+        const indice = new Map();
+
+        todosLosProductos.forEach((producto) => {
+            const codigo = normalizarCodigo(producto?.codigo_de_barras);
+            if (codigo) indice.set(codigo, producto);
+        });
+
+        return indice;
+    }, [todosLosProductos]);
 
     const limpiarCamposTraslado = () => {
         setProductos([]);
@@ -55,46 +64,24 @@ function GenerarPDFContent() {
         }
     }, []);
 
-    const cargarIndiceProductos = useCallback(async () => {
-        if (indiceInicializadoRef.current) return;
-        if (indiceCargaPromiseRef.current) {
-            await indiceCargaPromiseRef.current;
-            return;
+    const obtenerProductoPorCodigo = useCallback(async (codigo) => {
+        const normalizado = normalizarCodigo(codigo);
+        if (!normalizado) return null;
+
+        const encontradoEnCache = productosPorCodigo.get(normalizado);
+        if (encontradoEnCache) {
+            return encontradoEnCache;
         }
 
-        indiceCargaPromiseRef.current = (async () => {
-            const res = await axios.get(`${apiBase}/productosPuntoDeVenta`, {
-                params: { limit: 10000, skip: 0, sort: 'codigo_de_barras' }
-            });
-
-            const listado = extraerProductos(res.data);
-            const indice = new Map();
-
-            listado.forEach((producto) => {
-                const codigo = normalizarCodigo(producto?.codigo_de_barras);
-                if (codigo) indice.set(codigo, producto);
-            });
-
-            indiceProductosRef.current = indice;
-            indiceInicializadoRef.current = true;
-        })();
-
-        try {
-            await indiceCargaPromiseRef.current;
-        } finally {
-            indiceCargaPromiseRef.current = null;
+        if (!productosCargados) {
+            const catalogo = await asegurarProductos();
+            return catalogo.find(
+                (producto) => normalizarCodigo(producto?.codigo_de_barras) === normalizado
+            ) || null;
         }
-    }, []);
 
-    useEffect(() => {
-        const timerId = window.setTimeout(() => {
-            cargarIndiceProductos().catch((error) => {
-                console.warn('No se pudo precargar el indice de productos:', error);
-            });
-        }, 0);
-
-        return () => window.clearTimeout(timerId);
-    }, [cargarIndiceProductos]);
+        return null;
+    }, [asegurarProductos, productosCargados, productosPorCodigo]);
 
     // Buscar producto por código
     const buscarProducto = async (codigoIngresado) => {
@@ -112,27 +99,7 @@ function GenerarPDFContent() {
 
         setCargandoProducto(true);
         try {
-            let encontrado = indiceProductosRef.current.get(codigo);
-
-            if (!encontrado) {
-                const res = await axios.get(`${apiBase}/productosPuntoDeVenta`, {
-                    params: { search: codigo, limit: 25, skip: 0 }
-                });
-
-                const candidatos = extraerProductos(res.data);
-                encontrado = candidatos.find(
-                    (p) => normalizarCodigo(p.codigo_de_barras) === codigo
-                );
-
-                if (encontrado) {
-                    indiceProductosRef.current.set(codigo, encontrado);
-                }
-            }
-
-            if (!encontrado && !indiceInicializadoRef.current) {
-                await cargarIndiceProductos();
-                encontrado = indiceProductosRef.current.get(codigo);
-            }
+            const encontrado = await obtenerProductoPorCodigo(codigo);
             
             if (encontrado) {
                 setProductoEncontrado(encontrado);
@@ -228,7 +195,7 @@ function GenerarPDFContent() {
         }
 
         const confirmacion = window.confirm(
-            `¿Estás seguro de que quieres descontar el stock de ${productosSeleccionados.size} producto(s) seleccionado(s)?`
+            `¿Estás seguro de que quieres abastecer la tienda con ${productosSeleccionados.size} producto(s) seleccionado(s)?`
         );
 
         if (!confirmacion) return;
@@ -243,17 +210,24 @@ function GenerarPDFContent() {
                     id: p._id,
                     cantidad: p.cantidad
                 }));
-                    //http://localhost:4000/productosPuntoDeVenta
-            const response = await axios.put(`${apiBase}/productosPuntoDeVenta/descontarStockMasivo`, {
+
+            const response = await axios.put(abastecerTiendaApi, {
                 productos: productosParaDescontar
             });
 
+            const productosActualizados = (response.data?.exitosos || []).map((item) => ({
+                _id: item.id,
+                stock: item.stockBodegaActual,
+                stock_tienda: item.stockTiendaActual,
+            }));
+
+            actualizarProductosEnCache(productosActualizados);
             setResultadosDescuento(response.data);
             setMostrarResultados(true);
 
         } catch (error) {
-            console.error("Error al descontar stock:", error);
-            alert("Error al descontar el stock: " + (error.response?.data?.error || error.message));
+            console.error("Error al abastecer tienda:", error);
+            alert("Error al abastecer la tienda: " + (error.response?.data?.error || error.message));
         } finally {
             setDescontandoStock(false);
         }
@@ -287,7 +261,7 @@ function GenerarPDFContent() {
         // Título principal
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
-        doc.text("Detalle de Productos que salen de bodega", 10, 15);
+        doc.text("Detalle de Productos que salen de bodega hacia tienda", 10, 15);
         
         let y = 25;
         
@@ -362,8 +336,11 @@ function GenerarPDFContent() {
     return (
         <div className="p-6 bg-gray-100 min-h-screen">
             <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
-                Generar PDF de Productos
+                Abastecer Tienda
             </h1>
+            <p className="mb-6 text-center text-sm text-gray-600">
+                Selecciona productos de bodega para mover unidades al stock de tienda.
+            </p>
 
             {/* Campo para título del PDF */}
             <div className="mb-4 flex justify-center">
@@ -421,7 +398,8 @@ function GenerarPDFContent() {
                         <div className="mb-4">
                             <p className="font-semibold">{productoEncontrado.nombre}</p>
                             <p>Código: {productoEncontrado.codigo_de_barras}</p>
-                            <p>Stock disponible: {productoEncontrado.stock}</p>
+                            <p>Stock bodega disponible: {productoEncontrado.stock}</p>
+                            <p>Stock tienda actual: {productoEncontrado.stock_tienda ?? 0}</p>
                         </div>
                         
                         <div className="mb-4">
@@ -462,7 +440,7 @@ function GenerarPDFContent() {
             {mostrarResultados && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full max-h-96 overflow-y-auto">
-                        <h3 className="text-lg font-medium mb-4">Resultados del Descuento de Stock</h3>
+                        <h3 className="text-lg font-medium mb-4">Resultados del Abastecimiento de Tienda</h3>
                         
                         <div className="mb-4">
                             <p className="text-sm text-gray-600">
@@ -474,11 +452,11 @@ function GenerarPDFContent() {
 
                         {resultadosDescuento.exitosos.length > 0 && (
                             <div className="mb-4">
-                                <h4 className="font-medium text-green-600 mb-2">Productos actualizados exitosamente:</h4>
+                                <h4 className="font-medium text-green-600 mb-2">Productos abastecidos exitosamente:</h4>
                                 <div className="space-y-1">
                                     {resultadosDescuento.exitosos.map((item, index) => (
                                         <p key={index} className="text-sm text-green-700">
-                                            {item.nombre}: -{item.cantidadDescontada} (Stock: {item.stockAnterior} → {item.stockActual})
+                                            {item.nombre}: +{item.cantidadTransferida} tienda (Bodega: {item.stockBodegaAnterior} → {item.stockBodegaActual} | Tienda: {item.stockTiendaAnterior} → {item.stockTiendaActual})
                                         </p>
                                     ))}
                                 </div>
@@ -528,7 +506,7 @@ function GenerarPDFContent() {
                     className={`px-6 py-2 text-white font-semibold rounded-lg shadow-md transition flex items-center justify-center min-w-[200px] ${
                         productosSeleccionados.size === 0 || descontandoStock 
                             ? 'bg-gray-400 cursor-not-allowed' 
-                            : 'bg-red-500 hover:bg-red-700'
+                            : 'bg-emerald-500 hover:bg-emerald-700'
                     }`}
                 >
                     {descontandoStock ? (
@@ -537,10 +515,10 @@ function GenerarPDFContent() {
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Descontando...
+                            Abasteciendo...
                         </>
                     ) : (
-                        `Descontar Stock (${productosSeleccionados.size})`
+                        `Abastecer Tienda (${productosSeleccionados.size})`
                     )}
                 </button>
             </div>

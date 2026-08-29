@@ -4,32 +4,34 @@ import axios from "axios";
 import { useRouter } from "next/navigation";
 import { useCarrito } from "@/context/CarritoContext";
 import { useAuth } from "@/context/AuthContext";
+import { useBodega } from "@/context/BodegaContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { apiBase } from "@/endpoints/api";
-
-const extraerProductos = (data) => {
-    if (Array.isArray(data)) return data;
-    if (data && Array.isArray(data.productos)) return data.productos;
-    return [];
-};
 
 const normalizarCodigo = (codigo) => String(codigo ?? "").trim();
+const stockTiendaDisponible = (producto) => Number(producto?.stock_tienda ?? 0);
 
 function VentaContent() {
     const { logout } = useAuth();
+    const {
+        todosLosProductos: productos,
+        productosCargados,
+        cargando: cargandoCatalogo,
+        error: errorCatalogo,
+        asegurarProductos,
+        actualizarProductosEnCache,
+    } = useBodega();
     const router = useRouter();
 
     const { carrito, vaciarCarrito, agregarAlCarrito, eliminarDelCarrito } = useCarrito();
     const [codigoBarras, setCodigoBarras] = useState("");
     const [ventaIniciada, setVentaIniciada] = useState(false);
-    const [productos, setProductos] = useState([]);
-    const [cargandoProductos, setCargandoProductos] = useState(false);
     const [mensaje, setMensaje] = useState("");
 
     const [tipoVenta, setTipoVenta] = useState("mayor");
     const [tipoPago, setTipoPago] = useState("efectivo");
     const [numeroBoleta, setNumeroBoleta] = useState("");
     const [tipoDocumento, setTipoDocumento] = useState("boleta");
+    const cargandoProductos = cargandoCatalogo && !productosCargados;
 
     const productosPorCodigo = useMemo(() => {
         const indice = new Map();
@@ -52,26 +54,10 @@ function VentaContent() {
         router.push('/login');
     };
 
-    useEffect(() => { cargarProductos(); }, []);
-
-    const cargarProductos = async () => {
-        setCargandoProductos(true);
-        try {
-            const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
-            const productosCargados = extraerProductos(res.data);
-            setProductos(productosCargados);
-            console.log("Productos cargados:", productosCargados.length);
-
-            if (productosCargados.length === 0) {
-                setMensaje("No hay productos cargados");
-            }
-        } catch (error) {
-            console.error("Error al cargar productos:", error);
-            setMensaje("Error al cargar productos: " + error.message);
-        } finally {
-            setCargandoProductos(false);
-        }
-    };
+    useEffect(() => {
+        if (!errorCatalogo || productosCargados) return;
+        setMensaje(`Error al cargar productos: ${errorCatalogo}`);
+    }, [errorCatalogo, productosCargados]);
 
     const iniciarVenta = () => {
         setVentaIniciada(true);
@@ -91,16 +77,37 @@ function VentaContent() {
             setMensaje("Cargando productos, intente nuevamente en unos segundos");
             return;
         }
+
+        if (!productosCargados) {
+            setMensaje("Cargando catálogo, intente nuevamente en unos segundos");
+            void asegurarProductos().catch((error) => {
+                console.error("Error al cargar productos:", error);
+                setMensaje("Error al cargar productos: " + (error.response?.data?.error || error.message));
+            });
+            return;
+        }
         
         if (!Array.isArray(productos) || productos.length === 0) {
-            setMensaje("No hay productos cargados. Reintentando carga...");
-            cargarProductos();
+            setMensaje("No hay productos cargados");
             return;
         }
         
         const producto = obtenerProductoPorCodigo(codigoABuscar);
         
         if (producto) {
+            const stockDisponible = stockTiendaDisponible(producto);
+            const cantidadActual = carrito.find((item) => item._id === producto._id)?.cantidad || 0;
+
+            if (stockDisponible <= 0) {
+                setMensaje(`Producto "${producto.nombre}" sin stock en tienda`);
+                return;
+            }
+
+            if (cantidadActual >= stockDisponible) {
+                setMensaje(`Stock de tienda insuficiente para "${producto.nombre}". Disponible: ${stockDisponible}`);
+                return;
+            }
+
             agregarAlCarrito(producto);
             setCodigoBarras("");
             setMensaje(`Producto "${producto.nombre}" agregado al carrito`);
@@ -111,6 +118,7 @@ function VentaContent() {
         codigoBarras,
         cargandoProductos,
         productos,
+        carrito,
         obtenerProductoPorCodigo,
         agregarAlCarrito,
     ]);
@@ -120,13 +128,24 @@ function VentaContent() {
             setMensaje("No hay productos en el carrito");
             return;
         }
+
+        if (!numeroBoleta.trim()) {
+            setMensaje(`Ingrese el número de ${tipoDocumento === "boleta" ? "boleta" : "factura"}`);
+            return;
+        }
+
+        const productoSinStock = carrito.find((item) => item.cantidad > stockTiendaDisponible(item));
+        if (productoSinStock) {
+            setMensaje(`Stock de tienda insuficiente para "${productoSinStock.nombre}". Disponible: ${stockTiendaDisponible(productoSinStock)}`);
+            return;
+        }
         
         try {
             const total = tipoVenta === "mayor" 
                 ? carrito.reduce((sum, item) => sum + item.mayorista * item.cantidad, 0)
                 : carrito.reduce((sum, item) => sum + item.tarifa_publica * item.cantidad, 0);
 
-            await axios.post(`${apiBase}/registrar`, {
+            const response = await axios.post('/api/ventas/registrar', {
                 productos: carrito.map(item => ({
                     producto: item._id,
                     cantidad: item.cantidad,
@@ -140,16 +159,34 @@ function VentaContent() {
                 total
             });
 
-            setMensaje("Venta realizada con éxito");
+            const cantidadesPorProducto = carrito.reduce((acumulado, item) => {
+                acumulado.set(item._id, (acumulado.get(item._id) || 0) + Number(item.cantidad || 0));
+                return acumulado;
+            }, new Map());
+
+            const productosActualizados = Array.from(cantidadesPorProducto.entries())
+                .map(([productoId, cantidad]) => {
+                    const productoActual = productos.find((item) => item._id === productoId) || carrito.find((item) => item._id === productoId);
+                    if (!productoActual) return null;
+
+                    return {
+                        _id: productoId,
+                        stock_tienda: Math.max(stockTiendaDisponible(productoActual) - cantidad, 0)
+                    };
+                })
+                .filter(Boolean);
+
+            actualizarProductosEnCache(productosActualizados);
+
+            setMensaje(response.data?.mensaje || "Venta realizada con éxito");
             vaciarCarrito();
             setVentaIniciada(false);
-            cargarProductos();
             
             // Reiniciar los campos
             setNumeroBoleta("");
         } catch (error) {
             console.error("Error al confirmar venta:", error);
-            setMensaje("Error al confirmar venta: " + error.message);
+            setMensaje("Error al confirmar venta: " + (error.response?.data?.error || error.message));
         }
     };
 
@@ -210,6 +247,10 @@ function VentaContent() {
                     Cerrar Sesión
                 </button>
             </div>
+
+            <p className="mb-4 text-sm text-gray-600">
+                Las ventas descuentan unidades desde el stock de tienda.
+            </p>
             
             {mensaje && (
                 <div className={`p-3 my-3 rounded ${mensaje.includes("Error") || mensaje.includes("no encontrado") 
@@ -253,6 +294,7 @@ function VentaContent() {
                                     <th className="py-2 px-4 border">Imagen</th>
                                     <th className="py-2 px-4 border">Descripción</th>
                                     <th className="py-2 px-4 border">Código</th>
+                                    <th className="py-2 px-4 border">Stock Tienda</th>
                                     <th className="py-2 px-4 border">Cantidad</th>
                                     <th className="py-2 px-4 border">Tarifa Pública</th>
                                     <th className="py-2 px-4 border">Mayorista</th>
@@ -273,6 +315,7 @@ function VentaContent() {
                                         </td>
                                         <td className="py-2 px-4 border">{item.nombre}</td>
                                         <td className="py-2 px-4 border">{item.codigo_de_barras}</td>
+                                        <td className="py-2 px-4 border text-center">{stockTiendaDisponible(item)}</td>
                                         <td className="py-2 px-4 border">
                                             <div className="flex items-center">
                                                 <button 
@@ -287,7 +330,15 @@ function VentaContent() {
                                                 </button>
                                                 <span className="mx-2">{item.cantidad}</span>
                                                 <button 
-                                                    onClick={() => agregarAlCarrito({...item, cantidad: 1})}
+                                                    onClick={() => {
+                                                        const stockDisponible = stockTiendaDisponible(item);
+                                                        if (item.cantidad >= stockDisponible) {
+                                                            setMensaje(`Stock de tienda insuficiente para "${item.nombre}". Disponible: ${stockDisponible}`);
+                                                            return;
+                                                        }
+
+                                                        agregarAlCarrito({ ...item, cantidad: 1 });
+                                                    }}
                                                     className="bg-gray-300 px-2 py-1 rounded"
                                                 >
                                                     +
@@ -426,7 +477,7 @@ function VentaContent() {
 
 export default function PuntoDeVentaPage() {
     return (
-        <ProtectedRoute requireAdmin>
+        <ProtectedRoute requirePuntoDeVentaAccess>
             <VentaContent />
         </ProtectedRoute>
     );

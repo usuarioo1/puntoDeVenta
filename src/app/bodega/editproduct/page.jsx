@@ -3,13 +3,19 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { useBodega } from "@/context/BodegaContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { apiBase } from "@/endpoints/api";
 
 function EditarProductosContent() {
     const { user } = useAuth();
+    const {
+        todosLosProductos: productos,
+        cargando,
+        actualizarProductoEnCache,
+        eliminarProductoDelCache,
+    } = useBodega();
     const isAdmin = user?.role === 'admin';
-    const [productos, setProductos] = useState([]);
     const [busqueda, setBusqueda] = useState("");
     const [productoSeleccionado, setProductoSeleccionado] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -19,13 +25,6 @@ function EditarProductosContent() {
         tarifa_publica: false
     });
     const fileInputRef = useRef(null);
-
-    useEffect(() => { cargarProductos(); }, []);
-
-    const cargarProductos = async () => {
-        const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
-        setProductos(res.data.productos);
-    };
 
     const manejarBusqueda = (e) => {
         const valorBusqueda = e.target.value;
@@ -75,7 +74,9 @@ function EditarProductosContent() {
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
             if (response.data?.imageUrl) {
-                setProductoSeleccionado({ ...productoSeleccionado, imagen: response.data.imageUrl });
+                const productoConImagen = { ...productoSeleccionado, imagen: response.data.imageUrl };
+                setProductoSeleccionado(productoConImagen);
+                actualizarProductoEnCache(productoConImagen);
                 alert("Imagen subida correctamente");
             }
         } catch (error) {
@@ -89,9 +90,9 @@ function EditarProductosContent() {
 
     const actualizarProducto = async () => {
         try {
-            await axios.put(`${apiBase}/productosPuntoDeVenta/${productoSeleccionado._id}`, productoSeleccionado);
+            const { data } = await axios.put(`${apiBase}/productosPuntoDeVenta/${productoSeleccionado._id}`, productoSeleccionado);
+            actualizarProductoEnCache(data);
             alert("Producto actualizado correctamente");
-            cargarProductos();
             setProductoSeleccionado(null);
             setBusqueda("");
             setManualOverride({ mayorista: false, tarifa_publica: false });
@@ -107,8 +108,8 @@ function EditarProductosContent() {
         setIsDeleting(true);
         try {
             await axios.delete(`${apiBase}/productosPuntoDeVenta/${productoSeleccionado._id}`);
+            eliminarProductoDelCache(productoSeleccionado._id);
             alert("Producto eliminado");
-            cargarProductos();
             setProductoSeleccionado(null);
             setBusqueda("");
         } catch (error) {
@@ -136,6 +137,10 @@ function EditarProductosContent() {
                 className="border p-2 w-full mb-4"
             />
 
+            {cargando && productos.length === 0 && (
+                <p className="text-sm text-gray-500 mb-4">Cargando catálogo de productos...</p>
+            )}
+
             {productoSeleccionado && (
                 <div>
                     <h2 className="text-xl font-bold mb-2">Editar Producto</h2>
@@ -155,8 +160,11 @@ function EditarProductosContent() {
                     <label className="block font-semibold mb-1">Tarifa Pública</label>
                     <input type="text" name="tarifa_publica" value={productoSeleccionado.tarifa_publica || ""} onChange={manejarCambio} disabled={!isAdmin} className="border p-2 w-full mb-2 disabled:bg-gray-100" />
 
-                    <label className="block font-semibold mb-1">Stock</label>
-                    <input type="text" name="stock" value={productoSeleccionado.stock || ""} onChange={manejarCambio} disabled={!isAdmin} className="border p-2 w-full mb-2 disabled:bg-gray-100" />
+                    <label className="block font-semibold mb-1">Stock Bodega</label>
+                    <input type="number" min="0" name="stock" value={productoSeleccionado.stock || ""} onChange={manejarCambio} disabled={!isAdmin} className="border p-2 w-full mb-2 disabled:bg-gray-100" />
+
+                    <label className="block font-semibold mb-1">Stock Tienda</label>
+                    <input type="number" min="0" name="stock_tienda" value={productoSeleccionado.stock_tienda || ""} onChange={manejarCambio} disabled={!isAdmin} className="border p-2 w-full mb-2 disabled:bg-gray-100" />
 
                     {productoSeleccionado.imagen && (
                         <div className="mb-2">

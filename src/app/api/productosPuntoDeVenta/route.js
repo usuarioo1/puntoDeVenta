@@ -12,7 +12,9 @@ export async function GET(request) {
                 { status: 500 }
             );
         }
-        const url = process.env.API_VENTAS + '/productosPuntoDeVenta';
+        const requestUrl = new URL(request.url);
+        const query = requestUrl.searchParams.toString();
+        const url = process.env.API_VENTAS + '/productosPuntoDeVenta' + (query ? `?${query}` : '');
         const res = await fetch(url, {
             headers: {
                 'Content-Type': 'application/json',
@@ -42,6 +44,12 @@ export async function DELETE(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
+    if (!process.env.API_VENTAS) {
+        return NextResponse.json(
+            { error: 'API_VENTAS no está configurado en las variables de entorno' },
+            { status: 500 }
+        );
+    }
     const res = await fetch(`${process.env.API_VENTAS}/productosPuntoDeVenta/${id}`, {
         method: 'DELETE',
         headers: {

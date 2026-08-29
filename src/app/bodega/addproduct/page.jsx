@@ -2,9 +2,16 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { useBodega } from "@/context/BodegaContext";
 import { apiBase } from "@/endpoints/api";
 
 function DashboardProductosContent() {
+    const {
+        todosLosProductos: productosExistentes,
+        productosCargados,
+        asegurarProductos,
+        actualizarProductoEnCache,
+    } = useBodega();
     const [nuevoProducto, setNuevoProducto] = useState({
         nombre: "",
         costo: "",
@@ -19,12 +26,12 @@ function DashboardProductosContent() {
         tipo_de_joya: "",
         codigo_de_barras: "",
         stock: "",
+        stock_tienda: "",
         imagen: ""
     });
 
     const [imagenSeleccionada, setImagenSeleccionada] = useState(null);
     const [previewImagen, setPreviewImagen] = useState("");
-    const [productosExistentes, setProductosExistentes] = useState([]);
     const [productoRecienAgregado, setProductoRecienAgregado] = useState(null);
     const [cargandoImagen, setCargandoImagen] = useState(false);
     const productoRef = useRef(null);
@@ -36,24 +43,10 @@ function DashboardProductosContent() {
     ];
 
     useEffect(() => {
-        cargarProductos();
-    }, []);
-
-    useEffect(() => {
         if (productoRef.current) {
             productoRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [productoRecienAgregado]);
-
-    const cargarProductos = async () => {
-        try {
-            const res = await axios.get(`${apiBase}/productosPuntoDeVenta`);
-            setProductosExistentes(res.data.productos);
-        } catch (error) {
-            console.error("Error al cargar productos", error);
-            alert("No se pudieron cargar los productos existentes");
-        }
-    };
 
     const manejarCambio = (e) => {
         const { name, value } = e.target;
@@ -100,12 +93,17 @@ function DashboardProductosContent() {
         }
     };
 
-    const generarCodigoDeBarras = () => {
+    const generarCodigoDeBarras = (catalogo) => {
         let codigo = Math.floor(100000000 + Math.random() * 900000000).toString();
-        while (productosExistentes.some(producto => producto.codigo_de_barras === codigo)) {
+        while (catalogo.some((producto) => producto?.codigo_de_barras === codigo)) {
             codigo = Math.floor(100000000 + Math.random() * 900000000).toString();
         }
         return codigo;
+    };
+
+    const obtenerCatalogoActual = async () => {
+        if (productosCargados) return productosExistentes;
+        return asegurarProductos();
     };
 
     const resetearFormulario = () => {
@@ -123,6 +121,7 @@ function DashboardProductosContent() {
             tipo_de_joya: "",
             codigo_de_barras: "",
             stock: "",
+            stock_tienda: "",
             imagen: ""
         });
         setImagenSeleccionada(null);
@@ -136,7 +135,8 @@ function DashboardProductosContent() {
 
     const agregarProducto = async () => {
         try {
-            const codigoUnico = generarCodigoDeBarras();
+            const catalogo = await obtenerCatalogoActual();
+            const codigoUnico = generarCodigoDeBarras(catalogo);
             const productoCompleto = {
                 ...nuevoProducto,
                 codigo_de_barras: codigoUnico
@@ -146,22 +146,21 @@ function DashboardProductosContent() {
 
             // Primero agregamos el producto sin imagen
             const respuesta = await axios.post(`${apiBase}/productosPuntoDeVenta`, productoCompleto);
-            const productoGuardado = respuesta.data;
+            let productoGuardado = respuesta.data;
 
             // Si hay una imagen seleccionada, la subimos
             if (imagenSeleccionada) {
-                await subirImagen(productoGuardado._id);
+                const imageUrl = await subirImagen(productoGuardado._id);
+                if (imageUrl) {
+                    productoGuardado = { ...productoGuardado, imagen: imageUrl };
+                }
             }
 
-            // Actualizamos la lista de productos después de agregar uno nuevo
-            await cargarProductos();
+            actualizarProductoEnCache(productoGuardado);
 
             // Reseteamos el formulario usando la función separada
             resetearFormulario();
-            
-            // Si la subida fue exitosa, obtenemos el producto actualizado
-            const productoActualizado = await axios.get(`${apiBase}/productosPuntoDeVenta/${productoGuardado._id}`);
-            setProductoRecienAgregado(productoActualizado.data);
+            setProductoRecienAgregado(productoGuardado);
 
             alert("Producto agregado correctamente");
         } catch (error) {
@@ -269,14 +268,15 @@ function DashboardProductosContent() {
                             </select>
                         </div>
                         
-                        <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-2">
                             <select name="tipo_de_joya" value={nuevoProducto.tipo_de_joya} onChange={manejarCambio} className="border p-2">
                                 <option value="">Seleccionar Tipo de Joya</option>
                                 {tiposDeJoya.map((tipo) => (
                                     <option key={tipo} value={tipo}>{tipo}</option>
                                 ))}
                             </select>
-                            <input type="text" name="stock" placeholder="Stock" value={nuevoProducto.stock} onChange={manejarCambio} className="border p-2" />
+                            <input type="number" min="0" name="stock" placeholder="Stock Bodega" value={nuevoProducto.stock} onChange={manejarCambio} className="border p-2" />
+                            <input type="number" min="0" name="stock_tienda" placeholder="Stock Tienda" value={nuevoProducto.stock_tienda} onChange={manejarCambio} className="border p-2" />
                         </div>
                         
                         <div className="mb-4">
@@ -340,7 +340,8 @@ function DashboardProductosContent() {
                                     <p className="mb-2"><strong>Precio Bodega:</strong> {productoRecienAgregado.preferentes}</p>
                                     <p className="mb-2"><strong>Precio Mayorista:</strong> {productoRecienAgregado.mayorista}</p>
                                     <p className="mb-2"><strong>Tarifa Pública:</strong> {productoRecienAgregado.tarifa_publica}</p>
-                                    <p className="mb-2"><strong>Stock:</strong> {productoRecienAgregado.stock}</p>
+                                    <p className="mb-2"><strong>Stock Bodega:</strong> {productoRecienAgregado.stock}</p>
+                                    <p className="mb-2"><strong>Stock Tienda:</strong> {productoRecienAgregado.stock_tienda ?? 0}</p>
                                     <p className="mb-2"><strong>Metal:</strong> {productoRecienAgregado.metal}</p>
                                     <p className="mb-2"><strong>Tipo de Joya:</strong> {productoRecienAgregado.tipo_de_joya}</p>
                                     <p className="mb-2"><strong>Origen:</strong> {productoRecienAgregado.prod_nac_imp}</p>

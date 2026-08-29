@@ -4,9 +4,10 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 export default function Header() {
-    const { user, logout } = useAuth();
+    const { user, logout, canAccessBodega, canAccessPuntoDeVenta, getDefaultRoute } = useAuth();
     const router = useRouter();
     const isAdmin = user?.role === 'admin';
+    const rutaInicio = getDefaultRoute(user) === '/login' ? '/' : getDefaultRoute(user);
 
     const handleLogout = () => {
         logout();
@@ -25,16 +26,26 @@ export default function Header() {
                 )}
 
                 <div className="flex flex-wrap gap-2 items-center">
-                    <Link href='/'>
+                    <Link href={rutaInicio}>
                         <button className="bg-gray-500/20 backdrop-blur-md border border-gray-400/30 text-gray-800 px-3 py-1.5 rounded-lg hover:bg-gray-500/40 shadow-sm transition-all duration-300 font-medium">
                             Inicio
                         </button>
                     </Link>
-                    <Link href='/bodega'>
-                        <button className="bg-red-500/20 backdrop-blur-md border border-red-400/30 text-red-800 px-3 py-1.5 rounded-lg hover:bg-red-500/40 shadow-sm transition-all duration-300 font-medium">
-                            Bodega
-                        </button>
-                    </Link>
+                    {canAccessBodega(user) && (
+                        <Link href='/bodega'>
+                            <button className="bg-red-500/20 backdrop-blur-md border border-red-400/30 text-red-800 px-3 py-1.5 rounded-lg hover:bg-red-500/40 shadow-sm transition-all duration-300 font-medium">
+                                Bodega
+                            </button>
+                        </Link>
+                    )}
+
+                    {canAccessPuntoDeVenta(user) && (
+                        <Link href="/punto-de-venta">
+                            <button className="bg-blue-500/20 backdrop-blur-md border border-blue-400/30 text-blue-800 px-3 py-1.5 rounded-lg hover:bg-blue-500/40 shadow-sm transition-all duration-300 font-medium">
+                                Punto de Venta
+                            </button>
+                        </Link>
+                    )}
 
                     {isAdmin && (
                         <>
@@ -48,9 +59,9 @@ export default function Header() {
                                     Ventas
                                 </button>
                             </Link>
-                            <Link href="/bodega/traslado">
-                                <button className="bg-purple-500/20 backdrop-blur-md border border-purple-400/30 text-purple-800 px-3 py-1.5 rounded-lg hover:bg-purple-500/40 shadow-sm transition-all duration-300 font-medium">
-                                    Traslado
+                            <Link href="/bodega/abastecer-tienda">
+                                <button className="bg-emerald-500/20 backdrop-blur-md border border-emerald-400/30 text-emerald-800 px-3 py-1.5 rounded-lg hover:bg-emerald-500/40 shadow-sm transition-all duration-300 font-medium">
+                                    Abastecer Tienda
                                 </button>
                             </Link>
                             <Link href="/cargaimagenes">
@@ -66,7 +77,7 @@ export default function Header() {
                         </>
                     )}
 
-                    {user && (
+                    {canAccessBodega(user) && (
                         <Link href="/bodega/editproduct">
                             <button className="bg-yellow-500/20 backdrop-blur-md border border-yellow-400/30 text-yellow-800 px-3 py-1.5 rounded-lg hover:bg-yellow-500/40 shadow-sm transition-all duration-300 font-medium">
                                 Editar

@@ -1,11 +1,18 @@
 'use client';
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
-export default function ProtectedRoute({ children, requireAdmin = false }) {
-    const { user, loading } = useAuth();
+export default function ProtectedRoute({ children, requireAdmin = false, requirePuntoDeVentaAccess = false }) {
+    const { user, loading, isPosOnlyUser, canAccessPuntoDeVenta, getDefaultRoute } = useAuth();
     const router = useRouter();
+    const pathname = usePathname();
+
+    const usuarioSoloPuntoDeVenta = isPosOnlyUser(user);
+    const rutaPorDefecto = getDefaultRoute(user);
+    const bloqueadoEnBodega = Boolean(user && usuarioSoloPuntoDeVenta && pathname?.startsWith('/bodega'));
+    const sinAccesoPuntoDeVenta = Boolean(user && requirePuntoDeVentaAccess && !canAccessPuntoDeVenta(user));
+    const sinAccesoAdmin = Boolean(user && requireAdmin && user.role !== 'admin');
 
     useEffect(() => {
         if (loading) return;
@@ -13,10 +20,16 @@ export default function ProtectedRoute({ children, requireAdmin = false }) {
             router.replace('/login');
             return;
         }
-        if (requireAdmin && user.role !== 'admin') {
-            router.replace('/bodega');
+
+        if (bloqueadoEnBodega) {
+            router.replace('/punto-de-venta');
+            return;
         }
-    }, [user, loading, requireAdmin, router]);
+
+        if (sinAccesoAdmin || sinAccesoPuntoDeVenta) {
+            router.replace(rutaPorDefecto);
+        }
+    }, [bloqueadoEnBodega, loading, requireAdmin, requirePuntoDeVentaAccess, router, rutaPorDefecto, sinAccesoAdmin, sinAccesoPuntoDeVenta, user]);
 
     if (loading) {
         return (
@@ -26,7 +39,8 @@ export default function ProtectedRoute({ children, requireAdmin = false }) {
         );
     }
     if (!user) return null;
-    if (requireAdmin && user.role !== 'admin') return null;
+    if (bloqueadoEnBodega) return null;
+    if (sinAccesoAdmin || sinAccesoPuntoDeVenta) return null;
 
     return children;
 }
