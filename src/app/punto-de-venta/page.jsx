@@ -8,7 +8,7 @@ import { useBodega } from "@/context/BodegaContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 
-//accede vendedor
+//accede vendedor corregido
 
 const normalizarCodigo = (codigo) => String(codigo ?? "").trim();
 const stockTiendaDisponible = (producto) => Number(producto?.stock_tienda ?? 0);
