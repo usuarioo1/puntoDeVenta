@@ -59,6 +59,11 @@ export default function Header() {
                                     Ventas
                                 </button>
                             </Link>
+                            <Link href="/bodega/traslado">
+                                <button className="bg-purple-500/20 backdrop-blur-md border border-purple-400/30 text-purple-800 px-3 py-1.5 rounded-lg hover:bg-purple-500/40 shadow-sm transition-all duration-300 font-medium">
+                                    Traslado
+                                </button>
+                            </Link>
                             <Link href="/bodega/abastecer-tienda">
                                 <button className="bg-emerald-500/20 backdrop-blur-md border border-emerald-400/30 text-emerald-800 px-3 py-1.5 rounded-lg hover:bg-emerald-500/40 shadow-sm transition-all duration-300 font-medium">
                                     Abastecer Tienda
