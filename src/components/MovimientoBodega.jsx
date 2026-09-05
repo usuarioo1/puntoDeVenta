@@ -12,7 +12,7 @@ const abastecerTiendaApi = '/api/productosPuntoDeVenta/abastecerTienda';
 const CONFIG_MODO = {
     traslado: {
         titulo: 'Traslado de Bodega',
-        subtitulo: 'Selecciona productos de bodega para trasladar. Las unidades se descontarán del stock de bodega.',
+        subtitulo: 'Selecciona productos de bodega para trasladar. Las unidades se descontarán del stock de bodega. Cada escaneo suma 1 unidad automáticamente.',
         etiquetaAccion: 'Descontar Stock',
         cargandoAccion: 'Descontando...',
         tituloResultados: 'Resultados del Descuento de Stock',
@@ -58,6 +58,10 @@ function MovimientoBodegaContent({ modo }) {
     const [tituloPDF, setTituloPDF] = useState(""); // Nuevo estado para el título del PDF
     const inputRef = useRef(null);
     const ultimaBusquedaRef = useRef({ codigo: '', ts: 0 });
+    const [codigoFlash, setCodigoFlash] = useState(null);
+    const flashTimeoutRef = useRef(null);
+
+    useEffect(() => () => clearTimeout(flashTimeoutRef.current), []);
 
     const productosPorCodigo = useMemo(() => {
         const indice = new Map();
@@ -132,8 +136,13 @@ function MovimientoBodegaContent({ modo }) {
             const encontrado = await obtenerProductoPorCodigo(codigo);
 
             if (encontrado) {
-                setProductoEncontrado(encontrado);
-                setCantidad(1); // Resetear cantidad a 1 por defecto
+                if (config.esAbastecer) {
+                    setProductoEncontrado(encontrado);
+                    setCantidad(1); // Resetear cantidad a 1 por defecto
+                } else {
+                    agregarProductoALista(encontrado, 1);
+                    setCodigoManual("");
+                }
             } else {
                 alert("Producto no encontrado");
                 setCodigoManual("");
@@ -143,31 +152,49 @@ function MovimientoBodegaContent({ modo }) {
             alert("Error al buscar el producto");
         } finally {
             setCargandoProducto(false);
+            if (inputRef.current) {
+                inputRef.current.focus();
+            }
         }
+    };
+
+    // Agregar unidades de un producto a la lista (o sumar si ya existe)
+    const agregarProductoALista = (encontrado, unidades) => {
+        const codigoProducto = normalizarCodigo(encontrado.codigo_de_barras);
+
+        setProductos((prev) => {
+            const existe = prev.some(
+                (p) => normalizarCodigo(p.codigo_de_barras) === codigoProducto
+            );
+            if (existe) {
+                return prev.map((p) =>
+                    normalizarCodigo(p.codigo_de_barras) === codigoProducto
+                        ? { ...p, cantidad: p.cantidad + unidades }
+                        : p
+                );
+            }
+            return [...prev, { ...encontrado, cantidad: unidades }];
+        });
+
+        setCodigoFlash(codigoProducto);
+        if (flashTimeoutRef.current) {
+            clearTimeout(flashTimeoutRef.current);
+        }
+        flashTimeoutRef.current = setTimeout(() => setCodigoFlash(null), 1200);
+
+        setTimeout(() => {
+            const fila = document.querySelector(
+                `[data-codigo-barras="${CSS.escape(codigoProducto)}"]`
+            );
+            fila?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }, 50);
     };
 
     // Confirmar y agregar producto con la cantidad especificada
     const confirmarAgregarProducto = () => {
         if (!productoEncontrado || cantidad < 1) return;
 
-        const codigoProducto = normalizarCodigo(productoEncontrado.codigo_de_barras);
-
-        const productoExistente = productos.find(
-            (p) => normalizarCodigo(p.codigo_de_barras) === codigoProducto
-        );
-
-        if (productoExistente) {
-            setProductos((prev) => prev.map((p) =>
-                normalizarCodigo(p.codigo_de_barras) === codigoProducto
-                    ? { ...p, cantidad: p.cantidad + cantidad }
-                    : p
-            ));
-        } else {
-            setProductos((prev) => [...prev, {
-                ...productoEncontrado,
-                cantidad: cantidad
-            }]);
-        }
+        agregarProductoALista(productoEncontrado, cantidad);
 
         // Resetear estado
         setProductoEncontrado(null);
@@ -594,6 +621,12 @@ function MovimientoBodegaContent({ modo }) {
                             <tr className="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
                                 <th className="py-3 px-6 text-left">Seleccionar</th>
                                 <th className="py-3 px-6 text-left">Cantidad</th>
+                                {!config.esAbastecer && (
+                                    <>
+                                        <th className="py-3 px-6 text-left">Stock Bodega</th>
+                                        <th className="py-3 px-6 text-left">Restante</th>
+                                    </>
+                                )}
                                 <th className="py-3 px-6 text-left">Nombre</th>
                                 <th className="py-3 px-6 text-left">Precio Bodega</th>
                                 <th className="py-3 px-6 text-left">Código de Barras</th>
@@ -602,9 +635,17 @@ function MovimientoBodegaContent({ modo }) {
                         </thead>
                         <tbody className="text-gray-700 text-sm">
                             {productos.map((producto, index) => (
-                                <tr key={index} className={`border-b border-gray-200 hover:bg-gray-100 ${
-                                    productosSeleccionados.has(producto.codigo_de_barras) ? 'bg-blue-50' : ''
-                                }`}>
+                                <tr
+                                    key={index}
+                                    data-codigo-barras={producto.codigo_de_barras}
+                                    className={`border-b border-gray-200 hover:bg-gray-100 ${
+                                        codigoFlash === normalizarCodigo(producto.codigo_de_barras)
+                                            ? 'animate-pulse bg-yellow-100'
+                                            : productosSeleccionados.has(producto.codigo_de_barras)
+                                                ? 'bg-blue-50'
+                                                : ''
+                                    }`}
+                                >
                                     <td className="py-3 px-6">
                                         <input
                                             type="checkbox"
@@ -630,6 +671,18 @@ function MovimientoBodegaContent({ modo }) {
                                             className="w-16 p-1 border rounded"
                                         />
                                     </td>
+                                    {!config.esAbastecer && (
+                                        <>
+                                            <td className="py-3 px-6">{producto.stock}</td>
+                                            <td className={`py-3 px-6 ${
+                                                producto.stock - producto.cantidad < 0
+                                                    ? 'font-semibold text-red-600'
+                                                    : ''
+                                            }`}>
+                                                {producto.stock - producto.cantidad}
+                                            </td>
+                                        </>
+                                    )}
                                     <td className="py-3 px-6">{producto.nombre}</td>
                                     <td className="py-3 px-6">${producto.preferentes}</td>
                                     <td className="py-3 px-6">
