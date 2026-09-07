@@ -25,7 +25,7 @@ const CONFIG_MODO = {
     },
     abastecer: {
         titulo: 'Abastecer Tienda',
-        subtitulo: 'Selecciona productos de bodega para mover unidades al stock de tienda.',
+        subtitulo: 'Selecciona productos de bodega para mover unidades al stock de tienda. Cada escaneo suma 1 unidad automáticamente.',
         etiquetaAccion: 'Abastecer Tienda',
         cargandoAccion: 'Abasteciendo...',
         tituloResultados: 'Resultados del Abastecimiento de Tienda',
@@ -49,8 +49,6 @@ function MovimientoBodegaContent({ modo }) {
     const [productos, setProductos] = useState([]);
     const [codigoManual, setCodigoManual] = useState("");
     const [cargandoProducto, setCargandoProducto] = useState(false);
-    const [productoEncontrado, setProductoEncontrado] = useState(null);
-    const [cantidad, setCantidad] = useState(1);
     const [productosSeleccionados, setProductosSeleccionados] = useState(new Set());
     const [descontandoStock, setDescontandoStock] = useState(false);
     const [mostrarResultados, setMostrarResultados] = useState(false);
@@ -78,8 +76,6 @@ function MovimientoBodegaContent({ modo }) {
         setProductos([]);
         setProductosSeleccionados(new Set());
         setCodigoManual("");
-        setProductoEncontrado(null);
-        setCantidad(1);
         setTituloPDF("");
         if (inputRef.current) {
             inputRef.current.focus();
@@ -136,13 +132,8 @@ function MovimientoBodegaContent({ modo }) {
             const encontrado = await obtenerProductoPorCodigo(codigo);
 
             if (encontrado) {
-                if (config.esAbastecer) {
-                    setProductoEncontrado(encontrado);
-                    setCantidad(1); // Resetear cantidad a 1 por defecto
-                } else {
-                    agregarProductoALista(encontrado, 1);
-                    setCodigoManual("");
-                }
+                agregarProductoALista(encontrado, 1);
+                setCodigoManual("");
             } else {
                 alert("Producto no encontrado");
                 setCodigoManual("");
@@ -188,21 +179,6 @@ function MovimientoBodegaContent({ modo }) {
             );
             fila?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }, 50);
-    };
-
-    // Confirmar y agregar producto con la cantidad especificada
-    const confirmarAgregarProducto = () => {
-        if (!productoEncontrado || cantidad < 1) return;
-
-        agregarProductoALista(productoEncontrado, cantidad);
-
-        // Resetear estado
-        setProductoEncontrado(null);
-        setCodigoManual("");
-        setCantidad(1);
-        if (inputRef.current) {
-            inputRef.current.focus();
-        }
     };
 
     // Manejar cambio en el campo de código
@@ -427,14 +403,14 @@ function MovimientoBodegaContent({ modo }) {
                     placeholder="Escanear o ingresar código de barras"
                     className="p-2 border rounded-md shadow-sm"
                     ref={inputRef}
-                    disabled={cargandoProducto || productoEncontrado}
+                    disabled={cargandoProducto}
                 />
                 <button
                     type="submit"
                     className={`px-4 py-2 text-white rounded-md transition flex items-center justify-center min-w-[150px] ${
                         cargandoProducto ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-700'
                     }`}
-                    disabled={cargandoProducto || productoEncontrado}
+                    disabled={cargandoProducto}
                 >
                     {cargandoProducto ? (
                         <>
@@ -449,54 +425,6 @@ function MovimientoBodegaContent({ modo }) {
                     )}
                 </button>
             </form>
-
-            {/* Modal para especificar cantidad */}
-            {productoEncontrado && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-                        <h3 className="text-lg font-medium mb-4">Confirmar Producto</h3>
-                        <div className="mb-4">
-                            <p className="font-semibold">{productoEncontrado.nombre}</p>
-                            <p>Código: {productoEncontrado.codigo_de_barras}</p>
-                            <p>Stock bodega disponible: {productoEncontrado.stock}</p>
-                            {config.esAbastecer && (
-                                <p>Stock tienda actual: {productoEncontrado.stock_tienda ?? 0}</p>
-                            )}
-                        </div>
-
-                        <div className="mb-4">
-                            <label className="block mb-2">Cantidad:</label>
-                            <input
-                                type="number"
-                                min="1"
-                                max={productoEncontrado.stock}
-                                value={cantidad}
-                                onChange={(e) => setCantidad(Math.max(1, Math.min(productoEncontrado.stock, parseInt(e.target.value) || 1)))}
-                                className="w-full p-2 border rounded"
-                            />
-                        </div>
-
-                        <div className="flex justify-end gap-2">
-                            <button
-                                onClick={() => {
-                                    setProductoEncontrado(null);
-                                    setCodigoManual("");
-                                    if (inputRef.current) inputRef.current.focus();
-                                }}
-                                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={confirmarAgregarProducto}
-                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                            >
-                                Agregar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Modal de resultados del descuento */}
             {mostrarResultados && (
