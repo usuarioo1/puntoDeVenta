@@ -34,6 +34,7 @@ function VentaContent() {
     const [tipoPago, setTipoPago] = useState("efectivo");
     const [numeroBoleta, setNumeroBoleta] = useState("");
     const [tipoDocumento, setTipoDocumento] = useState("boleta");
+    const [confirmandoVenta, setConfirmandoVenta] = useState(false);
     const cargandoProductos = cargandoCatalogo && !productosCargados;
 
     const productosPorCodigo = useMemo(() => {
@@ -127,6 +128,8 @@ function VentaContent() {
     ]);
 
     const confirmarVenta = async () => {
+        if (confirmandoVenta) return;
+
         if (carrito.length === 0) {
             setMensaje("No hay productos en el carrito");
             return;
@@ -137,12 +140,9 @@ function VentaContent() {
             return;
         }
 
-        const productoSinStock = carrito.find((item) => item.cantidad > stockTiendaDisponible(item));
-        if (productoSinStock) {
-            setMensaje(`Stock de tienda insuficiente para "${productoSinStock.nombre}". Disponible: ${stockTiendaDisponible(productoSinStock)}`);
-            return;
-        }
-        
+        setConfirmandoVenta(true);
+        setMensaje("Procesando venta, actualizando stock...");
+
         try {
             const total = tipoVenta === "mayor" 
                 ? carrito.reduce((sum, item) => sum + item.mayorista * item.cantidad, 0)
@@ -181,15 +181,26 @@ function VentaContent() {
 
             actualizarProductosEnCache(productosActualizados);
 
-            setMensaje(response.data?.mensaje || "Venta realizada con éxito");
+            const resumenStock = response.data?.stock;
+            const erroresStock = resumenStock?.errores || [];
+            if (erroresStock.length > 0) {
+                setMensaje(
+                    `Venta registrada, pero hubo problemas al descontar stock: ` +
+                    erroresStock.map((e) => `${e.nombre || e.id}: ${e.error}`).join(' | ')
+                );
+            } else {
+                setMensaje(response.data?.mensaje || "Venta realizada con éxito");
+            }
             vaciarCarrito();
             setVentaIniciada(false);
-            
+
             // Reiniciar los campos
             setNumeroBoleta("");
         } catch (error) {
             console.error("Error al confirmar venta:", error);
             setMensaje("Error al confirmar venta: " + (error.response?.data?.error || error.message));
+        } finally {
+            setConfirmandoVenta(false);
         }
     };
 
@@ -198,7 +209,7 @@ function VentaContent() {
         let timeout = null;
     
         const handleKeyPress = (e) => {
-            if (ventaIniciada) {
+            if (ventaIniciada && !confirmandoVenta) {
                 if (timeout) clearTimeout(timeout);
                 
                 // Solo procesar caracteres imprimibles o Enter
@@ -463,11 +474,24 @@ function VentaContent() {
                                     Cancelar Venta
                                 </button>
                                 
-                                <button 
-                                    onClick={confirmarVenta} 
-                                    className="bg-green-500 text-white px-6 py-3 rounded-lg text-xl font-bold hover:bg-green-700"
+                                <button
+                                    onClick={confirmarVenta}
+                                    disabled={confirmandoVenta}
+                                    className={`text-white px-6 py-3 rounded-lg text-xl font-bold flex items-center justify-center min-w-[280px] ${
+                                        confirmandoVenta ? 'bg-green-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-700'
+                                    }`}
                                 >
-                                    Confirmar Venta - ${totalActual.toFixed(0)}
+                                    {confirmandoVenta ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Procesando venta...
+                                        </>
+                                    ) : (
+                                        `Confirmar Venta - ${totalActual.toFixed(0)}`
+                                    )}
                                 </button>
                             </div>
                         </>

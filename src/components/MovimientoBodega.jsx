@@ -378,9 +378,10 @@ function MovimientoBodegaContent({ modo }) {
         doc.setFont("helvetica", "bold");
 
         doc.text("Cantidad", 10, y);
-        doc.text("Nombre", 50, y);
-        doc.text("Precio Bodega", 120, y);
-        doc.text("Código de Barras", 160, y);
+        doc.text("Nombre", 30, y);
+        doc.text("Precio Bodega", 95, y);
+        doc.text("Precio por Mayor", 130, y);
+        doc.text("Código de Barras", 170, y);
 
         y += 8;
         doc.setFont("helvetica", "normal");
@@ -390,11 +391,12 @@ function MovimientoBodegaContent({ modo }) {
         productos.forEach((producto) => {
             doc.text(String(producto.cantidad), 10, y);
             doc.text(producto.nombre, 30, y);
-            doc.text(`$${producto.preferentes}`, 130, y);
+            doc.text(`$${producto.preferentes}`, 95, y);
+            doc.text(`$${producto.mayorista}`, 130, y);
 
             const codigoBarras = generarCodigoDeBarras(producto.codigo_de_barras);
             if (codigoBarras) {
-                doc.addImage(codigoBarras, "PNG", 150, y - 5, 30, 15);
+                doc.addImage(codigoBarras, "PNG", 155, y - 5, 30, 15);
             }
 
             y += 15;
@@ -659,6 +661,7 @@ function MovimientoBodegaContent({ modo }) {
                                 )}
                                 <th className="py-3 px-6 text-left">Nombre</th>
                                 <th className="py-3 px-6 text-left">Precio Bodega</th>
+                                <th className="py-3 px-6 text-left">Precio por Mayor</th>
                                 <th className="py-3 px-6 text-left">Código de Barras</th>
                                 <th className="py-3 px-6 text-left">Acciones</th>
                             </tr>
@@ -715,6 +718,7 @@ function MovimientoBodegaContent({ modo }) {
                                     )}
                                     <td className="py-3 px-6">{producto.nombre}</td>
                                     <td className="py-3 px-6">${producto.preferentes}</td>
+                                    <td className="py-3 px-6">${producto.mayorista}</td>
                                     <td className="py-3 px-6">
                                         {producto.codigo_de_barras && (
                                             <img

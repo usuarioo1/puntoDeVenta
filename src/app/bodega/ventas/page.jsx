@@ -12,6 +12,8 @@ const formatDate = (date) => {
     return `${year}-${month}-${day}`;
 };
 
+const formatDateWithTime = (date) => `${formatDate(date)} ${new Date(date).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`;
+
 const parseLocalDate = (dateString) => {
     const [year, month, day] = String(dateString).split('-').map(Number);
     return new Date(year, month - 1, day);
@@ -71,7 +73,7 @@ function VentasListadoContent() {
             filtradas = ventas.filter((venta) => formatDate(venta.fecha) === fechaSeleccionada);
         }
 
-        return filtradas;
+        return filtradas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
     }, [ventas, filtro, fechaSeleccionada]);
 
     const totalVentas = ventasFiltradas.reduce((acc, venta) => acc + Number(venta.total || 0), 0);
@@ -104,68 +106,57 @@ function VentasListadoContent() {
             {ventasFiltradas.length === 0 ? (
                 <p className="text-center text-gray-500">Aún no hay ventas en este período.</p>
             ) : (
-                <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white border border-gray-200">
-                        <thead>
-                            <tr className="bg-gray-100 border-b">
-                                <th className="py-2 px-4 border">Fecha</th>
-                                <th className="py-2 px-4 border">Código producto</th>
-                                <th className="py-2 px-4 border">Método de pago</th>
-                                <th className="py-2 px-4 border">Número de boleta</th>
-                                <th className="py-2 px-4 border">Monto total</th>
-                                <th className="py-2 px-4 border">Productos</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {ventasFiltradas.map((venta) => {
-                                const codigos = getUniqueValues(venta.productos, (item) => item.codigo || item.producto?.codigo_de_barras);
-                                const metodosPago = getUniqueValues(venta.productos, (item) => item.tipoPago);
-                                const numerosBoleta = getUniqueValues(venta.productos, (item) => item.numeroBoleta);
+                <div className="grid gap-4">
+                    {ventasFiltradas.map((venta) => {
+                        const metodosPago = getUniqueValues(venta.productos, (item) => item.tipoPago);
+                        const numerosBoleta = getUniqueValues(venta.productos, (item) => item.numeroBoleta);
+                        const tipoDocumento = venta.productos[0]?.tipoDocumento || 'boleta';
 
-                                return (
-                                <tr key={venta._id} className="border-b hover:bg-gray-50 align-top">
-                                    <td className="py-2 px-4 border text-center whitespace-nowrap">{formatDate(venta.fecha)}</td>
-                                    <td className="py-2 px-4 border text-sm">
-                                        {codigos.length > 0 ? codigos.join(', ') : 'Sin código'}
-                                    </td>
-                                    <td className="py-2 px-4 border text-center whitespace-nowrap">
-                                        {metodosPago.length > 0 ? metodosPago.join(', ') : '-'}
-                                    </td>
-                                    <td className="py-2 px-4 border text-center whitespace-nowrap">
-                                        {numerosBoleta.length > 0 ? numerosBoleta.join(', ') : '-'}
-                                    </td>
-                                    <td className="py-2 px-4 border text-center whitespace-nowrap">{formatCurrency(venta.total)}</td>
-                                    <td className="py-2 px-4 border">
-                                        <ul>
-                                            {venta.productos.map((item, index) => (
-                                                <li key={item._id || `${venta._id}-${item.producto?._id || item.codigo || index}`} className="flex items-center gap-2 py-1">
-                                                    {item.producto ? (
-                                                        <>
-                                                            <img 
-                                                                src={item.producto.imagen || "/noimagen.png"} 
-                                                                alt={item.producto.nombre} 
-                                                                className="w-10 h-10 object-cover rounded" 
-                                                            />
-                                                            <span>
-                                                                {item.producto.nombre} x{item.cantidad}
-                                                                <span className="block text-xs text-gray-500">Código: {item.codigo || item.producto.codigo_de_barras || '-'}</span>
-                                                            </span>
-                                                        </>
-                                                    ) : (
-                                                        <span>
-                                                            {item.nombre} x{item.cantidad}
-                                                            <span className="block text-xs text-gray-500">Código: {item.codigo || '-'}</span>
-                                                        </span>
-                                                    )}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </td>
-                                </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                        return (
+                            <div key={venta._id} className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden">
+                                <div className="bg-gray-100 px-4 py-3 flex flex-wrap justify-between items-center gap-2 border-b">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <span className="font-semibold text-gray-800 whitespace-nowrap">
+                                            {formatDateWithTime(venta.fecha)}
+                                        </span>
+                                        <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded whitespace-nowrap">
+                                            {tipoDocumento === 'factura' ? 'Factura' : 'Boleta'}: {numerosBoleta.length > 0 ? numerosBoleta.join(', ') : '-'}
+                                        </span>
+                                        <span className="text-sm bg-emerald-100 text-emerald-800 px-2 py-1 rounded whitespace-nowrap">
+                                            Pago: {metodosPago.length > 0 ? metodosPago.join(', ') : '-'}
+                                        </span>
+                                    </div>
+                                    <span className="font-bold text-lg text-gray-900 whitespace-nowrap">
+                                        {formatCurrency(venta.total)}
+                                    </span>
+                                </div>
+                                <div className="p-4">
+                                    <ul className="divide-y divide-gray-100">
+                                        {venta.productos.map((item, index) => (
+                                            <li key={item._id || `${venta._id}-${item.producto?._id || item.codigo || index}`} className="flex items-center gap-3 py-2">
+                                                <img
+                                                    src={item.producto?.imagen || "/noimagen.png"}
+                                                    alt={item.producto?.nombre || item.nombre}
+                                                    className="w-10 h-10 object-cover rounded"
+                                                />
+                                                <div className="flex-1">
+                                                    <span className="font-medium text-gray-800">
+                                                        {item.producto ? item.producto.nombre : item.nombre} x{item.cantidad}
+                                                    </span>
+                                                    <span className="block text-xs text-gray-500">
+                                                        Código: {item.codigo || item.producto?.codigo_de_barras || '-'} | Tipo venta: {item.tipoVenta === 'mayor' ? 'Por mayor' : 'Detalle'}
+                                                    </span>
+                                                </div>
+                                                <span className="text-sm bg-gray-100 text-gray-700 px-2 py-1 rounded whitespace-nowrap">
+                                                    {item.tipoPago || '-'}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
             <div className="text-right mt-4 font-bold text-lg">
