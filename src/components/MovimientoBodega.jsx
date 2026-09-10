@@ -9,6 +9,28 @@ const normalizarCodigo = (codigo) => String(codigo ?? '').trim();
 const descontarStockMasivoApi = '/api/productosPuntoDeVenta/descontarStockMasivo';
 const abastecerTiendaApi = '/api/productosPuntoDeVenta/abastecerTienda';
 
+// Convierte cualquier valor (string, objeto, array, etc.) en texto legible, evitando "[object Object]"
+const formatearValor = (valor) => {
+    if (typeof valor === 'string') return valor;
+    if (valor == null) return '';
+    try {
+        return JSON.stringify(valor);
+    } catch {
+        return String(valor);
+    }
+};
+
+// Extrae un mensaje de error legible de cualquier forma de error de axios
+const extraerMensajeError = (error) => {
+    const data = error?.response?.data;
+    const candidatos = [data?.error, data?.mensaje, data?.message, data?.detalles, error?.message];
+    for (const candidato of candidatos) {
+        const texto = formatearValor(candidato);
+        if (texto) return texto;
+    }
+    return 'Error desconocido';
+};
+
 const CONFIG_MODO = {
     traslado: {
         titulo: 'Traslado de Bodega',
@@ -53,6 +75,8 @@ function MovimientoBodegaContent({ modo }) {
     const [descontandoStock, setDescontandoStock] = useState(false);
     const [mostrarResultados, setMostrarResultados] = useState(false);
     const [resultadosDescuento, setResultadosDescuento] = useState({ exitosos: [], errores: [] });
+    const [productosSinStock, setProductosSinStock] = useState([]);
+    const [errorGeneral, setErrorGeneral] = useState("");
     const [tituloPDF, setTituloPDF] = useState(""); // Nuevo estado para el título del PDF
     const inputRef = useRef(null);
     const ultimaBusquedaRef = useRef({ codigo: '', ts: 0 });
@@ -84,6 +108,7 @@ function MovimientoBodegaContent({ modo }) {
 
     const cerrarResultadosYResetearVista = () => {
         setMostrarResultados(false);
+        setErrorGeneral("");
         limpiarCamposTraslado();
     };
 
@@ -227,18 +252,26 @@ function MovimientoBodegaContent({ modo }) {
             return;
         }
 
+        const seleccionados = productos.filter(p => productosSeleccionados.has(p.codigo_de_barras));
+
+        // Validación previa: advertir ANTES de confirmar si algún producto no tiene stock suficiente
+        const sinStock = seleccionados.filter(p => p.cantidad > p.stock);
+        if (sinStock.length > 0) {
+            setProductosSinStock(sinStock);
+            return;
+        }
+
         if (!window.confirm(config.confirmacion(productosSeleccionados.size))) return;
 
         setDescontandoStock(true);
+        setErrorGeneral("");
 
         try {
             // Preparar datos para envío
-            const productosParaProcesar = productos
-                .filter(p => productosSeleccionados.has(p.codigo_de_barras))
-                .map(p => ({
-                    id: p._id,
-                    cantidad: p.cantidad
-                }));
+            const productosParaProcesar = seleccionados.map(p => ({
+                id: p._id,
+                cantidad: p.cantidad
+            }));
 
             const response = await axios.put(config.api, {
                 productos: productosParaProcesar
@@ -263,7 +296,25 @@ function MovimientoBodegaContent({ modo }) {
 
         } catch (error) {
             console.error("Error al procesar la operación:", error);
-            alert("Error al procesar la operación: " + (error.response?.data?.error || error.message));
+            const data = error?.response?.data;
+            const exitosos = Array.isArray(data?.exitosos) ? data.exitosos : [];
+            const errores = Array.isArray(data?.errores) ? data.errores : [];
+
+            if (exitosos.length > 0 || errores.length > 0) {
+                // El backend procesó (al menos parcialmente): mostrar el resumen para que
+                // el usuario sepa exactamente qué quedó descontado y qué falló
+                setResultadosDescuento({
+                    ...(data && typeof data === 'object' && !Array.isArray(data) ? data : {}),
+                    exitosos,
+                    errores,
+                });
+                setErrorGeneral(
+                    "La operación se completó de forma parcial. " + extraerMensajeError(error)
+                );
+                setMostrarResultados(true);
+            } else {
+                alert("Error al procesar la operación: " + extraerMensajeError(error));
+            }
         } finally {
             setDescontandoStock(false);
         }
@@ -426,59 +477,110 @@ function MovimientoBodegaContent({ modo }) {
                 </button>
             </form>
 
-            {/* Modal de resultados del descuento */}
-            {mostrarResultados && (
+            {/* Modal de advertencia por stock insuficiente (antes de confirmar) */}
+            {productosSinStock.length > 0 && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full max-h-96 overflow-y-auto">
-                        <h3 className="text-lg font-medium mb-4">{config.tituloResultados}</h3>
-
-                        <div className="mb-4">
-                            <p className="text-sm text-gray-600">
-                                Total procesados: {resultadosDescuento.totalProcesados} |
-                                Exitosos: {resultadosDescuento.totalExitosos} |
-                                Errores: {resultadosDescuento.totalErrores}
-                            </p>
+                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-lg w-full max-h-96 overflow-y-auto">
+                        <h3 className="text-lg font-bold text-red-600 mb-2">
+                            Stock insuficiente
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Los siguientes productos no tienen suficiente stock en bodega para la cantidad
+                            solicitada. Ajusta la cantidad en la tabla o elimínalos de la lista antes de continuar.
+                            No se descontó nada todavía.
+                        </p>
+                        <div className="space-y-2 mb-4">
+                            {productosSinStock.map((p) => (
+                                <div
+                                    key={p._id}
+                                    className="p-3 rounded bg-red-50 border border-red-200 text-sm text-gray-800"
+                                >
+                                    <span className="font-semibold">{p.nombre}</span>
+                                    <span className="block text-red-700">
+                                        Solicitado: <b>{p.cantidad}</b> | Disponible en bodega: <b>{p.stock}</b>
+                                    </span>
+                                </div>
+                            ))}
                         </div>
-
-                        {resultadosDescuento.exitosos.length > 0 && (
-                            <div className="mb-4">
-                                <h4 className="font-medium text-green-600 mb-2">{config.exitososTitulo}</h4>
-                                <div className="space-y-1">
-                                    {resultadosDescuento.exitosos.map((item, index) => (
-                                        <p key={index} className="text-sm text-green-700">
-                                            {config.esAbastecer
-                                                ? `${item.nombre}: +${item.cantidadTransferida} tienda (Bodega: ${item.stockBodegaAnterior} → ${item.stockBodegaActual} | Tienda: ${item.stockTiendaAnterior} → ${item.stockTiendaActual})`
-                                                : `${item.nombre}: -${item.cantidadDescontada} bodega (Stock: ${item.stockAnterior} → ${item.stockActual})`}
-                                        </p>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {resultadosDescuento.errores.length > 0 && (
-                            <div className="mb-4">
-                                <h4 className="font-medium text-red-600 mb-2">Errores:</h4>
-                                <div className="space-y-1">
-                                    {resultadosDescuento.errores.map((error, index) => (
-                                        <p key={index} className="text-sm text-red-700">
-                                            {error.nombre || error.id}: {error.error}
-                                        </p>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         <div className="flex justify-end">
                             <button
-                                onClick={cerrarResultadosYResetearVista}
+                                onClick={() => setProductosSinStock([])}
                                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                             >
-                                OK
+                                Entendido
                             </button>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* Modal de resultados del descuento */}
+            {mostrarResultados && (() => {
+                const listaExitosos = resultadosDescuento.exitosos || [];
+                const listaErrores = resultadosDescuento.errores || [];
+                const totalProcesados = resultadosDescuento.totalProcesados ?? (listaExitosos.length + listaErrores.length);
+                const totalExitosos = resultadosDescuento.totalExitosos ?? listaExitosos.length;
+                const totalErrores = resultadosDescuento.totalErrores ?? listaErrores.length;
+
+                return (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full max-h-96 overflow-y-auto">
+                            <h3 className="text-lg font-medium mb-4">{config.tituloResultados}</h3>
+
+                            {errorGeneral && (
+                                <div className="mb-4 p-3 rounded bg-red-100 border border-red-300 text-red-800 text-sm font-medium">
+                                    {errorGeneral}
+                                </div>
+                            )}
+
+                            <div className="mb-4">
+                                <p className="text-sm text-gray-600">
+                                    Total procesados: {totalProcesados} |
+                                    Exitosos: {totalExitosos} |
+                                    Errores: {totalErrores}
+                                </p>
+                            </div>
+
+                            {listaExitosos.length > 0 && (
+                                <div className="mb-4">
+                                    <h4 className="font-medium text-green-600 mb-2">{config.exitososTitulo}</h4>
+                                    <div className="space-y-1">
+                                        {listaExitosos.map((item, index) => (
+                                            <p key={index} className="text-sm text-green-700">
+                                                {config.esAbastecer
+                                                    ? `${item.nombre}: +${item.cantidadTransferida} tienda (Bodega: ${item.stockBodegaAnterior} → ${item.stockBodegaActual} | Tienda: ${item.stockTiendaAnterior} → ${item.stockTiendaActual})`
+                                                    : `${item.nombre}: -${item.cantidadDescontada} bodega (Stock: ${item.stockAnterior} → ${item.stockActual})`}
+                                            </p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {listaErrores.length > 0 && (
+                                <div className="mb-4">
+                                    <h4 className="font-medium text-red-600 mb-2">Errores:</h4>
+                                    <div className="space-y-1">
+                                        {listaErrores.map((error, index) => (
+                                            <p key={index} className="text-sm text-red-700">
+                                                {error.nombre || error.id}: {formatearValor(error.error) || 'Error desconocido'}
+                                            </p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end">
+                                <button
+                                    onClick={cerrarResultadosYResetearVista}
+                                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                >
+                                    OK
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Botones de acción */}
             <div className="flex justify-center gap-4 mb-6">
