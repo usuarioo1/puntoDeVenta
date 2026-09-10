@@ -180,9 +180,18 @@ function StockTiendaContent() {
                             </tr>
                         </thead>
                         <tbody>
-                            {productos.map((p) => (
-                                <tr key={p._id} className="border-t hover:bg-gray-50 text-sm">
-                                    <td className="p-2 font-semibold">{stockTiendaDe(p)}</td>
+                            {productos.map((p) => {
+                                const pocoStock = stockTiendaDe(p) <= 2;
+                                return (
+                                <tr key={p._id} className={`border-t text-sm ${pocoStock ? 'bg-red-200 hover:bg-red-300' : 'hover:bg-gray-50'}`}>
+                                    <td className={`p-2 font-semibold ${pocoStock ? 'text-red-700 font-bold' : ''}`}>
+                                        {stockTiendaDe(p)}
+                                        {pocoStock && (
+                                            <span className="ml-2 inline-block bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                                Poco stock
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className="p-2">
                                         <button
                                             type="button"
@@ -204,7 +213,8 @@ function StockTiendaContent() {
                                     <td className="p-2">{p.codigo_de_barras}</td>
                                     <td className="p-2">${Number(p.mayorista ?? 0).toFixed(0)}</td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
