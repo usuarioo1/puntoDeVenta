@@ -158,7 +158,7 @@ export const BodegaProvider = ({ children }) => {
 
       try {
         const { data } = await axios.get('/api/productosPuntoDeVenta', {
-          params: { limit: 10000, skip: 0, sort: 'nombre' },
+          params: { sort: '-date' },
         });
         const listado = extraerProductos(data);
         reemplazarProductosEnCache(listado);

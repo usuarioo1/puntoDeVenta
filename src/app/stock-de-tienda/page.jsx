@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useBodega } from "@/context/BodegaContext";
@@ -11,23 +11,22 @@ const TIPOS_DE_JOYAS = [
 ];
 const PAGE_SIZE = 100;
 
-function BodegaContent() {
+const stockTiendaDe = (producto) => Number(producto?.stock_tienda ?? 0);
+
+function StockTiendaContent() {
     const { user, logout } = useAuth();
     const {
         todosLosProductos,
         cargando: cargandoCatalogo,
         sincronizando,
         error: errorCatalogo,
-        eliminarProductoDelCache,
     } = useBodega();
     const router = useRouter();
-    const isAdmin = user?.role === 'admin';
 
     const [skip, setSkip] = useState(0);
     const [search, setSearch] = useState("");
     const [searchInput, setSearchInput] = useState("");
     const [tipo, setTipo] = useState("");
-    const [errorAccion, setErrorAccion] = useState("");
     const [productoImagen, setProductoImagen] = useState(null);
 
     useEffect(() => {
@@ -65,6 +64,7 @@ function BodegaContent() {
         const tipoSeleccionado = tipo.trim().toLowerCase();
 
         return todosLosProductos
+            .filter((producto) => stockTiendaDe(producto) > 0)
             .filter((producto) => {
                 const nombre = String(producto?.nombre ?? '').toLowerCase();
                 const codigo = String(producto?.codigo_de_barras ?? '').toLowerCase();
@@ -74,40 +74,24 @@ function BodegaContent() {
                 const coincideTipo = !tipoSeleccionado || tipoDeJoya === tipoSeleccionado;
 
                 return coincideBusqueda && coincideTipo;
-            })
-            .sort((a, b) => {
-                const fechaA = a?.date ? new Date(a.date).getTime() : 0;
-                const fechaB = b?.date ? new Date(b.date).getTime() : 0;
-                return fechaB - fechaA;
             });
     }, [search, tipo, todosLosProductos]);
 
     const total = productosFiltrados.length;
-    const hayFiltros = Boolean(search || tipo);
-    const limiteActual = hayFiltros ? total : skip + PAGE_SIZE;
+    const unidadesTotales = useMemo(
+        () => productosFiltrados.reduce((sum, producto) => sum + stockTiendaDe(producto), 0),
+        [productosFiltrados]
+    );
+    const limiteActual = skip + PAGE_SIZE;
     const productos = useMemo(
         () => productosFiltrados.slice(0, limiteActual),
         [limiteActual, productosFiltrados]
     );
-    const hasMore = !hayFiltros && productos.length < total;
+    const hasMore = productos.length < total;
     const cargando = cargandoCatalogo && todosLosProductos.length === 0;
-    const error = errorAccion || errorCatalogo;
 
     const cargarMas = () => {
         setSkip((prev) => prev + PAGE_SIZE);
-    };
-
-    const eliminarProducto = async (id) => {
-        if (!window.confirm('¿Eliminar este producto?')) return;
-        try {
-            setErrorAccion('');
-            await axios.delete(`/api/productosPuntoDeVenta?id=${id}`);
-            eliminarProductoDelCache(id);
-        } catch (err) {
-            const message = err.response?.data?.mensaje || err.response?.data?.error || 'No se pudo eliminar';
-            setErrorAccion(message);
-            alert(message);
-        }
     };
 
     const handleLogout = () => {
@@ -120,13 +104,13 @@ function BodegaContent() {
     return (
         <div className="container mx-auto p-4">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-800">Bodega</h1>
+                <h1 className="text-2xl font-bold text-gray-800">Stock de Tienda</h1>
                 <div className="flex items-center gap-4">
                     <span className="text-sm text-gray-600 font-medium">
                         {user?.name || user?.username} <span className="text-xs opacity-75">({user?.role})</span>
                     </span>
-                    <button 
-                        onClick={handleLogout} 
+                    <button
+                        onClick={handleLogout}
                         className="bg-red-500/20 backdrop-blur-md border border-red-400/30 text-red-800 px-4 py-2 rounded-lg hover:bg-red-500/40 shadow-sm transition-all duration-300 active:scale-95 font-medium"
                     >
                         Cerrar Sesión
@@ -135,7 +119,7 @@ function BodegaContent() {
             </div>
 
             <div className="bg-white/40 backdrop-blur-md border border-white/20 p-6 rounded-xl shadow-sm mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-sm font-semibold mb-1 text-gray-700">Buscar</label>
                         <input
@@ -157,44 +141,48 @@ function BodegaContent() {
                             {TIPOS_DE_JOYAS.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                     </div>
+                    <div className="flex items-end gap-2 flex-wrap">
+                        <Link href="/bodega">
+                            <button className="bg-gray-500/20 backdrop-blur-md border border-gray-400/30 text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-500/40 shadow-sm transition-all duration-300 active:scale-95 font-medium">
+                                ← Bodega
+                            </button>
+                        </Link>
+                    </div>
                 </div>
                 <p className="text-sm text-gray-600 mt-2">
                     {cargando
                         ? 'Cargando catálogo...'
                         : sincronizando
-                            ? `Actualizando catálogo... ${productos.length} de ${total} producto(s)`
-                            : `${productos.length} de ${total} producto(s)`}
+                            ? `Actualizando catálogo... ${productos.length} de ${total} producto(s) en tienda`
+                            : `${productos.length} de ${total} producto(s) en tienda — ${unidadesTotales} unidad(es) en total`}
                 </p>
             </div>
 
-            {error && (
+            {errorCatalogo && (
                 <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded mb-3 text-sm">
-                    {error}
+                    {errorCatalogo}
                 </div>
             )}
 
             {productos.length === 0 && !cargando ? (
-                <p className="text-gray-500 text-center py-8">No se encontraron productos.</p>
+                <p className="text-gray-500 text-center py-8">No hay productos con stock en tienda.</p>
             ) : (
                 <div className="overflow-x-auto bg-white rounded shadow">
                     <table className="w-full">
                         <thead>
                             <tr className="bg-gray-200 text-left text-sm">
-                                <th className="p-2">Stock Bodega</th>
                                 <th className="p-2">Stock Tienda</th>
                                 <th className="p-2">Imagen</th>
                                 <th className="p-2">Nombre</th>
-                                <th className="p-2">Bodega</th>
                                 <th className="p-2">Tipo</th>
                                 <th className="p-2">Código</th>
-                                {isAdmin && <th className="p-2">Acciones</th>}
+                                <th className="p-2">Precio Mayor</th>
                             </tr>
                         </thead>
                         <tbody>
                             {productos.map((p) => (
                                 <tr key={p._id} className="border-t hover:bg-gray-50 text-sm">
-                                    <td className="p-2">{p.stock}</td>
-                                    <td className="p-2">{p.stock_tienda ?? 0}</td>
+                                    <td className="p-2 font-semibold">{stockTiendaDe(p)}</td>
                                     <td className="p-2">
                                         <button
                                             type="button"
@@ -212,18 +200,9 @@ function BodegaContent() {
                                         </button>
                                     </td>
                                     <td className="p-2 font-medium">{p.nombre}</td>
-                                    <td className="p-2">${p.preferentes}</td>
                                     <td className="p-2">{p.tipo_de_joya}</td>
                                     <td className="p-2">{p.codigo_de_barras}</td>
-                                    {isAdmin && (
-                                        <td className="p-2">
-                                            <div className="flex flex-col gap-1">
-                                                <button onClick={() => eliminarProducto(p._id)} className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-700">
-                                                    Eliminar
-                                                </button>
-                                            </div>
-                                        </td>
-                                    )}
+                                    <td className="p-2">${Number(p.mayorista ?? 0).toFixed(0)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -278,10 +257,10 @@ function BodegaContent() {
     );
 }
 
-export default function BodegaPage() {
+export default function StockTiendaPage() {
     return (
         <ProtectedRoute>
-            <BodegaContent />
+            <StockTiendaContent />
         </ProtectedRoute>
     );
 }

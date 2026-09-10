@@ -17,7 +17,7 @@ export async function GET(request) {
         const url = process.env.API_VENTAS + '/productosPuntoDeVenta' + (query ? `?${query}` : '');
         const res = await fetch(url, {
             headers: {
-                'Content-Type': 'application/json',
+                'Accept-Encoding': 'gzip',
                 'Authorization': await authHeader(request)
             },
             cache: 'no-store'
@@ -29,8 +29,11 @@ export async function GET(request) {
                 { status: res.status }
             );
         }
-        const data = await res.json();
-        return NextResponse.json(data);
+        const headers = new Headers();
+        headers.set('Content-Type', res.headers.get('content-type') || 'application/json');
+        // undici ya descomprimio el body (aunque conserve el header content-encoding),
+        // por lo que el stream que llega al navegador es JSON plano.
+        return new NextResponse(res.body, { status: res.status, headers });
     } catch (error) {
         console.error('Error al conectar con el backend:', error);
         return NextResponse.json(

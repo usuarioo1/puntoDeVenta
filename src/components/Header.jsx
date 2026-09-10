@@ -39,6 +39,14 @@ export default function Header() {
                         </Link>
                     )}
 
+                    {canAccessBodega(user) && (
+                        <Link href="/stock-de-tienda">
+                            <button className="bg-purple-500/20 backdrop-blur-md border border-purple-400/30 text-purple-800 px-3 py-1.5 rounded-lg hover:bg-purple-500/40 shadow-sm transition-all duration-300 font-medium">
+                                Stock de Tienda
+                            </button>
+                        </Link>
+                    )}
+
                     {canAccessPuntoDeVenta(user) && (
                         <Link href="/punto-de-venta">
                             <button className="bg-blue-500/20 backdrop-blur-md border border-blue-400/30 text-blue-800 px-3 py-1.5 rounded-lg hover:bg-blue-500/40 shadow-sm transition-all duration-300 font-medium">
