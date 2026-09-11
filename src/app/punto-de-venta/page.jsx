@@ -11,7 +11,10 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 //accede vendedor corregido
 
 const normalizarCodigo = (codigo) => String(codigo ?? "").trim();
-const stockTiendaDisponible = (producto) => Number(producto?.stock_tienda ?? 0);
+const stockTiendaDisponible = (producto) => {
+    const stock = Number(producto?.stock_tienda ?? 0);
+    return Number.isFinite(stock) ? Math.max(stock, 0) : 0;
+};
 
 function VentaContent() {
     const { logout } = useAuth();
@@ -22,6 +25,7 @@ function VentaContent() {
         error: errorCatalogo,
         asegurarProductos,
         actualizarProductosEnCache,
+        refrescarProductos,
     } = useBodega();
     const router = useRouter();
 
@@ -167,19 +171,45 @@ function VentaContent() {
                 return acumulado;
             }, new Map());
 
+            // Preferir los stocks devueltos por el backend; si no existen, calcularlos
+            // de forma optimista a partir del catálogo actual.
+            const stocksDelBackend = Array.isArray(response.data?.stock)
+                ? response.data.stock
+                : Array.isArray(response.data?.stock?.exitosos)
+                    ? response.data.stock.exitosos
+                    : [];
+
+            const stockBackendPorId = new Map();
+            stocksDelBackend.forEach((item) => {
+                const id = item?._id || item?.id || item?.producto;
+                const stock =
+                    item?.stock_tienda ?? item?.stockTiendaActual ?? item?.stock;
+                if (id && stock !== undefined && stock !== null && stock !== '') {
+                    stockBackendPorId.set(id, Number(stock));
+                }
+            });
+
             const productosActualizados = Array.from(cantidadesPorProducto.entries())
                 .map(([productoId, cantidad]) => {
                     const productoActual = productos.find((item) => item._id === productoId) || carrito.find((item) => item._id === productoId);
                     if (!productoActual) return null;
 
+                    const stockBackend = stockBackendPorId.get(productoId);
+                    const stockCalculado = Math.max(stockTiendaDisponible(productoActual) - cantidad, 0);
+
                     return {
                         _id: productoId,
-                        stock_tienda: Math.max(stockTiendaDisponible(productoActual) - cantidad, 0)
+                        stock_tienda: Number.isFinite(stockBackend) ? stockBackend : stockCalculado,
                     };
                 })
                 .filter(Boolean);
 
             actualizarProductosEnCache(productosActualizados);
+
+            // Sincronizar con el servidor en segundo plano para descartar diferencias.
+            void refrescarProductos().catch((syncError) => {
+                console.warn('No se pudo sincronizar el catálogo tras la venta:', syncError);
+            });
 
             const resumenStock = response.data?.stock;
             const erroresStock = resumenStock?.errores || [];

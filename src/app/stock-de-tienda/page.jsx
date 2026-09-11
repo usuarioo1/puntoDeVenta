@@ -11,7 +11,21 @@ const TIPOS_DE_JOYAS = [
 ];
 const PAGE_SIZE = 100;
 
-const stockTiendaDe = (producto) => Number(producto?.stock_tienda ?? 0);
+const stockTiendaDe = (producto) => {
+    const stock = Number(producto?.stock_tienda ?? 0);
+    return Number.isFinite(stock) ? Math.max(stock, 0) : 0;
+};
+
+const productoEnTienda = (producto) => {
+    // Si el backend ya envía el indicador explícito, usarlo.
+    if (producto?.en_tienda === true) return true;
+    if (producto?.en_tienda === false) return false;
+
+    // Fallback mientras el backend no tenga el campo: considerar en tienda
+    // a los productos que tienen stock_tienda definido (no null/undefined/vacío).
+    const stock = producto?.stock_tienda;
+    return stock !== undefined && stock !== null && String(stock).trim() !== '';
+};
 
 function StockTiendaContent() {
     const { user, logout } = useAuth();
@@ -64,7 +78,7 @@ function StockTiendaContent() {
         const tipoSeleccionado = tipo.trim().toLowerCase();
 
         return todosLosProductos
-            .filter((producto) => stockTiendaDe(producto) > 0)
+            .filter((producto) => productoEnTienda(producto))
             .filter((producto) => {
                 const nombre = String(producto?.nombre ?? '').toLowerCase();
                 const codigo = String(producto?.codigo_de_barras ?? '').toLowerCase();
@@ -165,7 +179,7 @@ function StockTiendaContent() {
             )}
 
             {productos.length === 0 && !cargando ? (
-                <p className="text-gray-500 text-center py-8">No hay productos con stock en tienda.</p>
+                <p className="text-gray-500 text-center py-8">No hay productos en tienda.</p>
             ) : (
                 <div className="overflow-x-auto bg-white rounded shadow">
                     <table className="w-full">
@@ -181,11 +195,18 @@ function StockTiendaContent() {
                         </thead>
                         <tbody>
                             {productos.map((p) => {
-                                const pocoStock = stockTiendaDe(p) <= 2;
+                                const stock = stockTiendaDe(p);
+                                const sinStock = stock === 0;
+                                const pocoStock = !sinStock && stock <= 2;
                                 return (
-                                <tr key={p._id} className={`border-t text-sm ${pocoStock ? 'bg-red-200 hover:bg-red-300' : 'hover:bg-gray-50'}`}>
-                                    <td className={`p-2 font-semibold ${pocoStock ? 'text-red-700 font-bold' : ''}`}>
-                                        {stockTiendaDe(p)}
+                                <tr key={p._id} className={`border-t text-sm ${sinStock ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : pocoStock ? 'bg-red-200 hover:bg-red-300' : 'hover:bg-gray-50'}`}>
+                                    <td className={`p-2 font-semibold ${sinStock ? 'text-gray-600' : pocoStock ? 'text-red-700 font-bold' : ''}`}>
+                                        {stock}
+                                        {sinStock && (
+                                            <span className="ml-2 inline-block bg-gray-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                                Sin stock
+                                            </span>
+                                        )}
                                         {pocoStock && (
                                             <span className="ml-2 inline-block bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                                                 Poco stock
