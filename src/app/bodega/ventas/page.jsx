@@ -57,6 +57,20 @@ function VentasListadoContent() {
         fetchVentas();
     }, []);
 
+    const eliminarVenta = async (id) => {
+        if (!window.confirm("¿Estás seguro de que quieres eliminar esta venta?\n\nEl stock de tienda NO se modificará.")) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/api/ventas?id=${id}`);
+            setVentas((prevVentas) => prevVentas.filter((venta) => venta._id !== id));
+        } catch (err) {
+            setError("Error al eliminar la venta");
+            console.error(err);
+        }
+    };
+
     const ventasFiltradas = useMemo(() => {
         let filtradas = ventas;
         const fechaBase = parseLocalDate(fechaSeleccionada);
@@ -126,9 +140,18 @@ function VentasListadoContent() {
                                             Pago: {metodosPago.length > 0 ? metodosPago.join(', ') : '-'}
                                         </span>
                                     </div>
-                                    <span className="font-bold text-lg text-gray-900 whitespace-nowrap">
-                                        {formatCurrency(venta.total)}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-bold text-lg text-gray-900 whitespace-nowrap">
+                                            {formatCurrency(venta.total)}
+                                        </span>
+                                        <button
+                                            onClick={() => eliminarVenta(venta._id)}
+                                            className="bg-red-500 hover:bg-red-700 text-white text-sm px-3 py-1 rounded transition-colors"
+                                            title="Eliminar venta"
+                                        >
+                                            Eliminar
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="p-4">
                                     <ul className="divide-y divide-gray-100">
