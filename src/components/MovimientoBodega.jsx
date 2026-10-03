@@ -31,6 +31,11 @@ const extraerMensajeError = (error) => {
     return 'Error desconocido';
 };
 
+// Procesar los productos seleccionados en lotes pequeños: cada petición es corta
+// y no se corta por tiempos de espera de la red, aunque el backend tarde en procesar todo
+const TAMANO_LOTE_ACCION = 10;
+const TIMEOUT_ACCION_MONTO_MS = 180000;
+
 const CONFIG_MODO = {
     traslado: {
         titulo: 'Traslado de Bodega',
@@ -75,6 +80,7 @@ function MovimientoBodegaContent({ modo }) {
     const [descontandoStock, setDescontandoStock] = useState(false);
     const [mostrarResultados, setMostrarResultados] = useState(false);
     const [resultadosDescuento, setResultadosDescuento] = useState({ exitosos: [], errores: [] });
+    const [progresoLote, setProgresoLote] = useState(null);
     const [productosSinStock, setProductosSinStock] = useState([]);
     const [errorGeneral, setErrorGeneral] = useState("");
     const [tituloPDF, setTituloPDF] = useState(""); // Nuevo estado para el título del PDF
@@ -266,18 +272,52 @@ function MovimientoBodegaContent({ modo }) {
         setDescontandoStock(true);
         setErrorGeneral("");
 
-        try {
-            // Preparar datos para envío
-            const productosParaProcesar = seleccionados.map(p => ({
-                id: p._id,
-                cantidad: p.cantidad
-            }));
+        // Dividir en lotes: cada petición procesa pocos productos y termina rápido,
+        // evitando que la conexión se corte y se muestre error aunque todo se procese
+        const lotes = [];
+        for (let i = 0; i < seleccionados.length; i += TAMANO_LOTE_ACCION) {
+            lotes.push(seleccionados.slice(i, i + TAMANO_LOTE_ACCION));
+        }
 
-            const response = await axios.put(config.api, {
-                productos: productosParaProcesar
-            });
+        const exitososAcumulados = [];
+        const erroresAcumulados = [];
 
-            const productosActualizados = (response.data?.exitosos || []).map((item) => (
+        for (let i = 0; i < lotes.length; i++) {
+            setProgresoLote({ actual: i + 1, total: lotes.length });
+
+            try {
+                const response = await axios.put(
+                    config.api,
+                    { productos: lotes[i].map(p => ({ id: p._id, cantidad: p.cantidad })) },
+                    { timeout: TIMEOUT_ACCION_MONTO_MS }
+                );
+
+                const data = response.data ?? {};
+                exitososAcumulados.push(...(Array.isArray(data.exitosos) ? data.exitosos : []));
+                erroresAcumulados.push(...(Array.isArray(data.errores) ? data.errores : []));
+            } catch (errorLote) {
+                // Un lote puede fallar sin bloquear a los demás; se acumula para el resumen
+                console.error(`Error al procesar el lote ${i + 1} de ${lotes.length}:`, errorLote);
+                const data = errorLote?.response?.data;
+                const huboRespuestaDetallada =
+                    Array.isArray(data?.exitosos) || Array.isArray(data?.errores);
+
+                exitososAcumulados.push(...(Array.isArray(data?.exitosos) ? data.exitosos : []));
+                erroresAcumulados.push(...(Array.isArray(data?.errores) ? data.errores : []));
+
+                if (!huboRespuestaDetallada) {
+                    const mensajeErrorLote = extraerMensajeError(errorLote);
+                    lotes[i].forEach((p) =>
+                        erroresAcumulados.push({ id: p._id, nombre: p.nombre, error: mensajeErrorLote })
+                    );
+                }
+            }
+        }
+
+        setProgresoLote(null);
+
+        if (exitososAcumulados.length > 0) {
+            const productosActualizados = exitososAcumulados.map((item) => (
                 config.esAbastecer
                     ? {
                         _id: item.id,
@@ -289,35 +329,23 @@ function MovimientoBodegaContent({ modo }) {
                         stock: item.stockActual,
                     }
             ));
-
             actualizarProductosEnCache(productosActualizados);
-            setResultadosDescuento(response.data);
-            setMostrarResultados(true);
-
-        } catch (error) {
-            console.error("Error al procesar la operación:", error);
-            const data = error?.response?.data;
-            const exitosos = Array.isArray(data?.exitosos) ? data.exitosos : [];
-            const errores = Array.isArray(data?.errores) ? data.errores : [];
-
-            if (exitosos.length > 0 || errores.length > 0) {
-                // El backend procesó (al menos parcialmente): mostrar el resumen para que
-                // el usuario sepa exactamente qué quedó descontado y qué falló
-                setResultadosDescuento({
-                    ...(data && typeof data === 'object' && !Array.isArray(data) ? data : {}),
-                    exitosos,
-                    errores,
-                });
-                setErrorGeneral(
-                    "La operación se completó de forma parcial. " + extraerMensajeError(error)
-                );
-                setMostrarResultados(true);
-            } else {
-                alert("Error al procesar la operación: " + extraerMensajeError(error));
-            }
-        } finally {
-            setDescontandoStock(false);
         }
+
+        setResultadosDescuento({
+            exitosos: exitososAcumulados,
+            errores: erroresAcumulados,
+            totalProcesados: seleccionados.length,
+            totalExitosos: exitososAcumulados.length,
+            totalErrores: erroresAcumulados.length,
+        });
+
+        if (erroresAcumulados.length > 0) {
+            setErrorGeneral("Algunos productos no se pudieron procesar. Revisa el detalle antes de repetir la operación.");
+        }
+
+        setMostrarResultados(true);
+        setDescontandoStock(false);
     };
 
     // Eliminar producto de la lista
@@ -379,9 +407,8 @@ function MovimientoBodegaContent({ modo }) {
 
         doc.text("Cantidad", 10, y);
         doc.text("Nombre", 30, y);
-        doc.text("Precio Bodega", 95, y);
-        doc.text("Precio por Mayor", 130, y);
-        doc.text("Código de Barras", 170, y);
+        doc.text("Precio por Mayor", 95, y);
+        doc.text("Código de Barras", 155, y);
 
         y += 8;
         doc.setFont("helvetica", "normal");
@@ -391,8 +418,7 @@ function MovimientoBodegaContent({ modo }) {
         productos.forEach((producto) => {
             doc.text(String(producto.cantidad), 10, y);
             doc.text(producto.nombre, 30, y);
-            doc.text(`$${producto.preferentes}`, 95, y);
-            doc.text(`$${producto.mayorista}`, 130, y);
+            doc.text(`$${producto.mayorista}`, 95, y);
 
             const codigoBarras = generarCodigoDeBarras(producto.codigo_de_barras);
             if (codigoBarras) {
@@ -611,7 +637,9 @@ function MovimientoBodegaContent({ modo }) {
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            {config.cargandoAccion}
+                            {progresoLote
+                                ? `${config.cargandoAccion.replace('...', '...')} (lote ${progresoLote.actual} de ${progresoLote.total})`
+                                : config.cargandoAccion}
                         </>
                     ) : (
                         `${config.etiquetaAccion} (${productosSeleccionados.size})`

@@ -24,7 +24,16 @@ export async function PUT(request) {
             cache: 'no-store'
         });
 
-        const data = await res.json();
+        const texto = await res.text();
+        let data;
+        try {
+            data = JSON.parse(texto);
+        } catch {
+            data = {
+                error: 'El backend respondió con un formato inesperado',
+                detalles: texto?.slice(0, 300) || 'Respuesta vacía'
+            };
+        }
         return NextResponse.json(data, { status: res.status });
     } catch (error) {
         console.error('Error al descontar stock masivo desde el frontend:', error);
