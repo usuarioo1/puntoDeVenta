@@ -77,6 +77,11 @@ export default function Header() {
                                     Abastecer Tienda
                                 </button>
                             </Link>
+                            <Link href="/bodega/movimientos">
+                                <button className="bg-orange-500/20 backdrop-blur-md border border-orange-400/30 text-orange-800 px-3 py-1.5 rounded-lg hover:bg-orange-500/40 shadow-sm transition-all duration-300 font-medium">
+                                    Movimientos
+                                </button>
+                            </Link>
                             <Link href="/cargaimagenes">
                                 <button className="bg-indigo-500/20 backdrop-blur-md border border-indigo-400/30 text-indigo-800 px-3 py-1.5 rounded-lg hover:bg-indigo-500/40 shadow-sm transition-all duration-300 font-medium">
                                     Imágenes

@@ -332,6 +332,8 @@ function MovimientoBodegaContent({ modo }) {
             actualizarProductosEnCache(productosActualizados);
         }
 
+        await registrarMovimiento(exitososAcumulados);
+
         setResultadosDescuento({
             exitosos: exitososAcumulados,
             errores: erroresAcumulados,
@@ -354,6 +356,33 @@ function MovimientoBodegaContent({ modo }) {
         const nuevasSelecciones = new Set(productosSeleccionados);
         nuevasSelecciones.delete(codigoBarras);
         setProductosSeleccionados(nuevasSelecciones);
+    };
+
+    // Guardar en el historial un registro del movimiento que salió de bodega
+    const registrarMovimiento = async (productosExitosos) => {
+        if (!productosExitosos || productosExitosos.length === 0) return;
+
+        try {
+            const mayoristaPorId = new Map(
+                productos
+                    .filter(p => p._id)
+                    .map(p => [String(p._id), p.mayorista])
+            );
+
+            await axios.post('/api/movimientosBodega', {
+                tipo: modo,
+                destino: tituloPDF.trim(),
+                productos: productosExitosos.map((item) => ({
+                    id: item.id,
+                    nombre: item.nombre,
+                    codigo_de_barras: item.codigo_de_barras,
+                    cantidad: item.cantidadDescontada ?? item.cantidadTransferida,
+                    mayorista: mayoristaPorId.get(String(item.id)),
+                })),
+            });
+        } catch (error) {
+            console.warn('No se pudo registrar el movimiento en el historial:', error);
+        }
     };
 
     // Generar código de barras
