@@ -15,6 +15,14 @@ const stockTiendaDisponible = (producto) => {
     const stock = Number(producto?.stock_tienda ?? 0);
     return Number.isFinite(stock) ? Math.max(stock, 0) : 0;
 };
+const esCadena = (producto) =>
+    String(producto?.tipo_de_joya ?? "").trim().toLowerCase() === "cadena";
+const productoEnTienda = (producto) => {
+    if (producto?.en_tienda === true) return true;
+    if (producto?.en_tienda === false) return false;
+    const stock = producto?.stock_tienda;
+    return stock !== undefined && stock !== null && String(stock).trim() !== "";
+};
 
 function VentaContent() {
     const { logout } = useAuth();
@@ -55,6 +63,12 @@ function VentaContent() {
     const obtenerProductoPorCodigo = useCallback((codigo) => {
         return productosPorCodigo.get(normalizarCodigo(codigo));
     }, [productosPorCodigo]);
+
+    const cadenasEnTienda = useMemo(() => (
+        productos
+            .filter((producto) => esCadena(producto) && productoEnTienda(producto))
+            .sort((a, b) => String(a?.nombre ?? "").localeCompare(String(b?.nombre ?? ""), "es"))
+    ), [productos]);
 
     const handleLogout = () => {
         vaciarCarrito();
@@ -130,6 +144,22 @@ function VentaContent() {
         obtenerProductoPorCodigo,
         agregarAlCarrito,
     ]);
+
+    const agregarCadenaRapida = useCallback((cadena) => {
+        if (!ventaIniciada) {
+            setMensaje("Inicie la venta para agregar cadenas al carrito");
+            return;
+        }
+
+        const codigo = normalizarCodigo(cadena?.codigo_de_barras);
+        if (!codigo) {
+            setMensaje("La cadena no tiene código de barras");
+            return;
+        }
+
+        setCodigoBarras(codigo);
+        agregarAlCarritoHandler(codigo);
+    }, [ventaIniciada, agregarAlCarritoHandler]);
 
     const confirmarVenta = async () => {
         if (confirmandoVenta) return;
@@ -292,6 +322,35 @@ function VentaContent() {
                 </button>
             </div>
 
+            {cadenasEnTienda.length > 0 && (
+                <div className="mb-4 border rounded-lg p-3 bg-gray-50">
+                    <p className="text-sm font-semibold text-gray-700 mb-2">
+                        Cadenas en tienda ({cadenasEnTienda.length}) — clic para agregar
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
+                        {cadenasEnTienda.map((cadena) => {
+                            const sinStock = stockTiendaDisponible(cadena) <= 0;
+                            return (
+                                <button
+                                    key={cadena._id}
+                                    type="button"
+                                    onClick={() => agregarCadenaRapida(cadena)}
+                                    disabled={sinStock}
+                                    title={sinStock ? `${cadena.nombre} — sin stock en tienda` : cadena.nombre}
+                                    className={`max-w-[200px] truncate px-2 py-1 rounded text-sm border transition-colors ${
+                                        sinStock
+                                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                            : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 active:bg-blue-200"
+                                    }`}
+                                >
+                                    {cadena.nombre}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             <p className="mb-4 text-base text-gray-600">
                 Las ventas descuentan unidades desde el stock de tienda.
             </p>
@@ -338,7 +397,6 @@ function VentaContent() {
                                     <th className="py-2 px-4 border text-lg">Imagen</th>
                                     <th className="py-2 px-4 border text-lg">Descripción</th>
                                     <th className="py-2 px-4 border text-lg">Código</th>
-                                    <th className="py-2 px-4 border text-lg">Stock Tienda</th>
                                     <th className="py-2 px-4 border text-lg">Cantidad</th>
                                     <th className="py-2 px-4 border text-lg">Tarifa Pública</th>
                                     <th className="py-2 px-4 border text-lg">Mayorista</th>
@@ -359,7 +417,6 @@ function VentaContent() {
                                         </td>
                                         <td className="py-2 px-4 border text-lg">{item.nombre}</td>
                                         <td className="py-2 px-4 border text-lg">{item.codigo_de_barras}</td>
-                                        <td className="py-2 px-4 border text-center text-lg">{stockTiendaDisponible(item)}</td>
                                         <td className="py-2 px-4 border text-lg">
                                             <div className="flex items-center">
                                                 <button 
